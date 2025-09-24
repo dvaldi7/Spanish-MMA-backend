@@ -20,7 +20,9 @@
   },
   "homepage": "https://github.com/dvaldi7/Spanish-MMA-backend#readme",
   "dependencies": {
-    "express": "^5.1.0"
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "mysql2": "^3.15.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"
