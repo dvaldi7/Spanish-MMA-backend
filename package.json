@@ -3,10 +3,26 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": ""
+  "description": "backend repository for DAW final project",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dvaldi7/Spanish-MMA-backend.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dvaldi7/Spanish-MMA-backend/issues"
+  },
+  "homepage": "https://github.com/dvaldi7/Spanish-MMA-backend#readme",
+  "dependencies": {
+    "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  }
 }
