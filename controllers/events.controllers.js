@@ -1,7 +1,7 @@
 const pool = require("../config/db");
 
 // Ver eventos
-const getEvents = ('/', async (req, res) => {
+const getEvents = async (req, res) => {
 
     try {
         const [events] = await pool.query('SELECT * FROM events');
@@ -13,7 +13,7 @@ const getEvents = ('/', async (req, res) => {
             error: 'Error interno del servidor al obtener eventos.',
         });
     }
-});
+};
 
 
 // Crear nuevos eventos

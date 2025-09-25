@@ -5,7 +5,8 @@ const router = express.Router();
 const companiesController = require("../controllers/companies.controllers");
 
 //Rutas
-router.get('/', companiesController.getCompanies)
+router.get('/', companiesController.getCompanies);
+router.post('/', companiesController.createCompanies);
 
 // Exportamos el router para usarlo en index.js
 module.exports = router;
