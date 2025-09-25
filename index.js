@@ -27,7 +27,7 @@ app.get('/test-db', async (req, res) => {
     try {
         // verificar la conexión
         const [rows] = await pool.query('SELECT "Conexión Exitosa" AS status');
-        
+
         // Devolvemos el resultado
         res.json({ 
             message: 'Conexión a MySQL establecida correctamente', 
