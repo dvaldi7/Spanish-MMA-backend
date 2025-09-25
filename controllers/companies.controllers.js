@@ -1,6 +1,6 @@
 const pool = require("../config/db");
 
-// Ruta compañias
+// Ver compañías
 const getCompanies = ('/', async (req, res) => {
     try {
         const [companies] = await pool.query('SELECT * FROM companies');
@@ -13,6 +13,8 @@ const getCompanies = ('/', async (req, res) => {
         });
     }
 });
+
+//Crear nueva compañía
 
 
 module.exports= {

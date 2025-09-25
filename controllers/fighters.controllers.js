@@ -1,6 +1,6 @@
 const pool = require("../config/db");
 
-// Ruta luchadores
+// Ver luchadores
 const getFighters = async (req, res) => {
     try {
         const [fighters] = await pool.query('SELECT * FROM fighters');
@@ -13,6 +13,8 @@ const getFighters = async (req, res) => {
         });
     }
 };
+
+// Crear nuevo peleador
 
 module.exports = {
     getFighters,
