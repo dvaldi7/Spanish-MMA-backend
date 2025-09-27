@@ -1,6 +1,6 @@
 const pool = require("../config/db");
 
-// Ver luchadores
+// Ver peleadores
 const getFighters = async (req, res) => {
     try {
         const [fighters] = await pool.query('SELECT * FROM fighters');
@@ -64,7 +64,39 @@ const createFighters = async (req, res) => {
     }
 }
 
+//Obtener peleador por ID
+const getFightersById = async (req, res) => {
+
+    const { id } = req.params;
+
+    try{
+        const [fighters ] = await pool.query('SELECT * FROM fighters WHERE fighter_id = ?', [id]);
+
+        if(fighters.length === 0){
+            return res.status(404).json({
+                status: "Error",
+                message: "La id no coincide con ningú peleador registrado",
+            })
+        }
+
+        res.json(fighters[0]);
+        
+    }catch(error){
+        console.error("Error al obetener al peleador por su id: ", error);
+        return res.status(500).json({
+            status: "Error",
+            message: "Peleador no encontrado"
+        })
+    }
+}
+
+//Actualizar peleador
+
+
+//Borrar peleador
+
 module.exports = {
     getFighters,
     createFighters,
+    getFightersById,
 }
