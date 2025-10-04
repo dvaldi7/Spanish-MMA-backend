@@ -80,7 +80,7 @@ const getFightersById = async (req, res) => {
         }
 
         res.json(fighters[0]);
-        
+
     }catch(error){
         console.error("Error al obetener al peleador por su id: ", error);
         return res.status(500).json({
@@ -91,7 +91,14 @@ const getFightersById = async (req, res) => {
 }
 
 //Actualizar peleador
+const updateFighter = async (req, res) => {
 
+    const { id } = req.params;
+    const { first_name, last_name, nickname, weight_class, record_wins, record_losses, record_draws } = req.body;
+
+    if ()
+
+}
 
 //Borrar peleador
 
@@ -99,4 +106,5 @@ module.exports = {
     getFighters,
     createFighters,
     getFightersById,
+    updateFighter,
 }
