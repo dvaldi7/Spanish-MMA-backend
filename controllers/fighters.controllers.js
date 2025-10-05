@@ -96,7 +96,20 @@ const updateFighter = async (req, res) => {
     const { id } = req.params;
     const { first_name, last_name, nickname, weight_class, record_wins, record_losses, record_draws } = req.body;
 
-    if ()
+    if (!req.body){
+        return res.status(400).json({
+            error: "Debe enviar datos para actualizar"
+        })  
+    }
+
+    try{
+
+    }catch(error){
+        console.error("Error al actualizar el peleador: ", error);
+        res.status(500).json({
+            error: "Error interno al actualizar el peleador"
+        })
+    }
 
 }
 
