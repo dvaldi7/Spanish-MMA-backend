@@ -94,7 +94,7 @@ const getFightersById = async (req, res) => {
 const updateFighter = async (req, res) => {
 
     const { id } = req.params;
-    const { first_name, last_name, nickname, weight_class, record_wins, record_losses, record_draws } = req.body;
+    const fieldsToUpdate = req.body;
 
     if (!req.body){
         return res.status(400).json({
@@ -103,6 +103,42 @@ const updateFighter = async (req, res) => {
     }
 
     try{
+        const validKeys = [];
+        const validValues = [];
+        
+        for (const key in fieldsToUpdate) {
+            const value = fieldsToUpdate[key];
+
+            if (value !== "" && value !== null) {
+                validKeys.push(key);
+                validValues.push(value);
+            }
+        }
+
+        if (validKeys.length === 0) {         
+             return res.status(400).json({ 
+                 error: 'La solicitud no contiene datos válidos para actualizar' 
+             });
+        }
+
+        const change = validKeys.map(key => `${key} = ?`).join(', ');
+        const finalValues = [...validValues, id];
+        
+        const sqlUpdate = `UPDATE fighters SET ${change} WHERE fighter_id = ?`;
+
+        const [result] = await pool.query(sqlUpdate, finalValues);
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ 
+                error: "Luchador no encontrado o sin cambios necesarios",
+            });
+        }
+
+        res.status(200).json({ 
+            message: "Luchador actualizado con éxito ",
+            data_updated: fieldsToUpdate,
+        });
+
 
     }catch(error){
         console.error("Error al actualizar el peleador: ", error);

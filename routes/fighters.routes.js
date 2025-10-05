@@ -8,7 +8,7 @@ const fightersController = require("../controllers/fighters.controllers");
 router.get('/', fightersController.getFighters);
 router.post('/', fightersController.createFighters);
 router.get('/:id', fightersController.getFightersById);
-//router.put('/:id', fightersController.updateFighter);
+router.put('/:id', fightersController.updateFighter);
 //router.delete('/:id', fightersController.deleteFighter);
 
 // Exportamos el router para usarlo en index.js
