@@ -150,10 +150,40 @@ const updateFighter = async (req, res) => {
 }
 
 //Borrar peleador
+const deleteFighter = async (req, res) => {
+
+    const { id } = req.params;
+
+    try{
+
+        const sqlQuery = 'DELETE FROM fighters WHERE fighter_id = ?';
+        const [ result ] = await pool.query(sqlQuery, [id] );
+
+           if (result.affectedRows === 0) {
+                return res.status(404).json({ 
+                    status: "error",
+                    message: "Luchador no encontrado ",
+                });
+            }
+
+        console.log("Luchador eliminado con éxito!");
+        res.status(204).send();
+        
+    }catch(error){
+        console.error("Error al borrar al peleador: ", error);
+
+        res.status(500).json({
+            status: "error",
+            message: "Error al intentar borrar al peleador",
+        })
+    }
+
+}
 
 module.exports = {
     getFighters,
     createFighters,
     getFightersById,
     updateFighter,
+    deleteFighter,
 }
