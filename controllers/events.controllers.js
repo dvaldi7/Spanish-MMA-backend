@@ -66,7 +66,36 @@ const createEvents = async (req, res) => {
 }
 
 //Obtener evento por ID
+const getEventsById = async (req, res) => {
 
+    const { id } = req.params;
+    
+    try{
+
+        const sqlQuery = 'SELECT * FROM events WHERE event_id = ?';
+        const [events] = await pool.query(sqlQuery, [id]);
+
+        if (events.length === 0){
+            return res.status(400).json({
+                status: "error",
+                message: "Evento no encontrado por ID"
+            });
+        }
+
+        res.status(200).json({
+            status: "success",
+            event: events[0],
+        })
+
+    }catch(error){
+        console.error("Error al obtener el evento: ", error);
+        res.status(500).json({
+            status: "error",
+            message: "Error al obtener el evento",
+        })
+    }
+
+}
 
 //Obterner evento por SLUG
 
@@ -82,5 +111,6 @@ const createEvents = async (req, res) => {
 module.exports = {
     getEvents,
     createEvents,
+    getEventsById,
 
 };
