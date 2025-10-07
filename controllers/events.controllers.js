@@ -1,4 +1,5 @@
 const pool = require("../config/db");
+const slugify = require("slugify");
 
 // Ver eventos
 const getEvents = async (req, res) => {
@@ -15,7 +16,6 @@ const getEvents = async (req, res) => {
     }
 };
 
-
 // Crear nuevos eventos
 const createEvents = async (req, res) => {
 
@@ -29,25 +29,54 @@ const createEvents = async (req, res) => {
     }
 
     try {
-        const [result] = await pool.query(
-            'INSERT INTO events (name, location, date) VALUES (?, ?, ?)',
-            [name, location, date]
-        );
+
+        const eventSlug = slugify(name, { lower: true, strict: true });
+        const sqlQuery = `
+            INSERT INTO events (name, location, date, slug)
+            VALUES (?, ?, ?, ?)
+        `;
+        const values = [name, location, date, eventSlug];
+
+        const [result] = await pool.query(sqlQuery, values);
 
         res.status(201).json({
+            status: "success",
             message: 'Evento creado con éxito',
-            eventId: result.insertId,
+            event_id: result.insertId,
+            event_slug: eventSlug,
             data: req.body
         });
 
     } catch (error) {
         console.error("Error al crear el evento nuevo: ", error);
+
+        //Manejo clave duplicada si existe el slug
+        if (error.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({
+                status: "error",
+                message: "Ya existe un evento con un nombre similar (slug duplicado)"
+            });
+        }
+
         res.status(500).json({
             status: "error",
             message: "Error al crear el nuevo evento",
         })
     }
 }
+
+//Obtener evento por ID
+
+
+//Obterner evento por SLUG
+
+
+//Actualizar evento
+
+
+//Borrar evento
+
+
 
 
 module.exports = {

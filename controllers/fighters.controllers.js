@@ -131,6 +131,7 @@ const getFightersBySlug = async (req, res) => {
     }
 }
 
+//Actualizar peleador
 const updateFighter = async (req, res) => {
     const { id } = req.params;
     const fieldsToUpdate = req.body;
