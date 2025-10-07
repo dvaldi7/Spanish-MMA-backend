@@ -75,7 +75,7 @@ const getFightersById = async (req, res) => {
         if(fighters.length === 0){
             return res.status(404).json({
                 status: "Error",
-                message: "La id no coincide con ningú peleador registrado",
+                message: "La id no coincide con ningún peleador registrado",
             })
         }
 
@@ -87,6 +87,32 @@ const getFightersById = async (req, res) => {
             status: "Error",
             message: "Peleador no encontrado"
         })
+    }
+}
+
+//Obterner peleador por SLUG
+const getFightersBySlug = async (req, res) => {
+
+    const { slug } = req.params;
+
+    try{
+        const [fighters ] = await pool.query('SELECT * FROM fighters WHERE slug = ?', [slug]);
+
+        if(fighters.length === 0){
+            return res.status(404).json({
+                status: "Error",
+                message: "Luchador no encontrado con ese nombre",
+            });
+        }
+
+        res.json(fighters[0]);
+
+    }catch(error){
+        console.error("Error al obetener al peleador por su slug: ", error);
+        return res.status(500).json({
+            status: "Error",
+            message: "Peleador no encontrado"
+        });
     }
 }
 
@@ -186,4 +212,5 @@ module.exports = {
     getFightersById,
     updateFighter,
     deleteFighter,
+    getFightersBySlug,
 }
