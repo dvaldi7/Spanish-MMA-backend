@@ -98,7 +98,35 @@ const getEventsById = async (req, res) => {
 }
 
 //Obterner evento por SLUG
+const getEventsBySlug = async (req, res) => {
 
+    const { slug } = req.params;
+
+    try{
+
+        const sqlQuery = 'SELECT * FROM events WHERE slug = ?';
+        const [events] = await pool.query(sqlQuery, [slug]);
+
+        if (events.length === 0) {
+            return res.status(404).json({
+                status: "error",
+                message: "Evento no encontrado por Slug.",
+            });
+        }
+
+        res.status(200).json({
+            status: "success",
+            event: events[0],
+        })
+
+    }catch(error){
+        console.error("No se ha encontrado ningún evento con este nombre de Slug");
+        res.status(500).json({
+            status: "error",
+            message: "No se ha encontrado ningún evento con este nombre de Slug",
+        })
+    }
+}
 
 //Actualizar evento
 
@@ -112,5 +140,6 @@ module.exports = {
     getEvents,
     createEvents,
     getEventsById,
+    getEventsBySlug,
 
 };
