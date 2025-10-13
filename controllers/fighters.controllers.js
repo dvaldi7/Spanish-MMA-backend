@@ -1,4 +1,5 @@
 const pool = require("../config/db");
+const slugify = require("slugify");
 
 // Ver peleadores
 const getFighters = async (req, res) => {
@@ -26,18 +27,22 @@ const createFighters = async (req, res) => {
         weight_class 
     } = req.body;
 
-   if (!first_name || !last_name || !weight_class) {
+    const nameForSlug = `${first_name} ${last_name}`;
+    const slug = slugify(nameForSlug, { lower: true, strict: true });
+
+
+   if (!first_name || !last_name ) {
         return res.status(400).json({
             status: "error",
-            message: "Faltan algunos campos obligatorios (nombre, apellido o apodo)",
+            message: "Faltan algunos campos obligatorios (nombre o apellido)",
         });
     }
 
     try {
         const [result] = await pool.query(
                     `INSERT INTO fighters 
-            (first_name, last_name, nickname, record_wins, record_losses, record_draws, weight_class) 
-            VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            (first_name, last_name, nickname, record_wins, record_losses, record_draws, weight_class, slug) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 first_name, 
                 last_name, 
@@ -45,18 +50,28 @@ const createFighters = async (req, res) => {
                 record_wins || 0, 
                 record_losses || 0, 
                 record_draws || 0, 
-                weight_class
+                weight_class,
+                slug,
             ]
         );
         
                 res.status(201).json({
                     message: 'Peleador creado con éxito',
                     fighterId: result.insertId,
-                    data: req.body
+                    data: req.body,
+                    slug_generated: slug,
                 });
     
     } catch (error) {
         console.error("Error al crear el peleador: ", error);
+
+        if (error.code === 'ER_DUP_ENTRY') {
+             return res.status(409).json({
+                status: "error",
+                message: "Error de duplicidad: Ya existe un peleador con ese nombre (slug)",
+            });
+        }
+
         res.status(500).json({
             status: "error",
             message: "Error al crear el peleador",
@@ -75,12 +90,12 @@ const getFightersById = async (req, res) => {
         if(fighters.length === 0){
             return res.status(404).json({
                 status: "Error",
-                message: "La id no coincide con ningú peleador registrado",
+                message: "La id no coincide con ningún peleador registrado",
             })
         }
 
         res.json(fighters[0]);
-        
+
     }catch(error){
         console.error("Error al obetener al peleador por su id: ", error);
         return res.status(500).json({
@@ -90,13 +105,160 @@ const getFightersById = async (req, res) => {
     }
 }
 
-//Actualizar peleador
+//Obterner peleador por SLUG
+const getFightersBySlug = async (req, res) => {
 
+    const { slug } = req.params;
+
+    try{
+        const [fighters ] = await pool.query('SELECT * FROM fighters WHERE slug = ?', [slug]);
+
+        if(fighters.length === 0){
+            return res.status(404).json({
+                status: "Error",
+                message: "Luchador no encontrado con ese nombre",
+            });
+        }
+
+        res.json(fighters[0]);
+
+    }catch(error){
+        console.error("Error al obetener al peleador por su slug: ", error);
+        return res.status(500).json({
+            status: "Error",
+            message: "Peleador no encontrado"
+        });
+    }
+}
+
+//Actualizar peleador
+const updateFighter = async (req, res) => {
+    const { id } = req.params;
+    const fieldsToUpdate = req.body;
+
+    if (!req.body || Object.keys(fieldsToUpdate).length === 0) {
+        return res.status(400).json({
+            status: "error",
+            message: "Debe enviar datos para actualizar",
+        });
+    }
+
+    try {
+        //Obtener nombre actual para asegurar SLUG completo
+        const [currentFighterRows] = await pool.query(
+            'SELECT first_name, last_name FROM fighters WHERE fighter_id = ?', [id]
+        );
+        
+        if (currentFighterRows.length === 0) {
+            return res.status(404).json({
+                status: "error",
+                message: "Luchador no encontrado para actualizar",
+            });
+        }
+        
+        const currentFighter = currentFighterRows[0];
+
+        if (fieldsToUpdate.first_name || fieldsToUpdate.last_name) {
+            
+            const finalFirstName = fieldsToUpdate.first_name || currentFighter.first_name;
+            const finalLastName = fieldsToUpdate.last_name || currentFighter.last_name;
+            
+            const nameForSlug = `${finalFirstName} ${finalLastName}`.trim();
+
+            if (nameForSlug.length > 0) {
+                fieldsToUpdate.slug = slugify(nameForSlug, { lower: true, strict: true });
+            }
+        }
+        
+        const validKeys = [];
+        const validValues = [];
+        
+        for (const key in fieldsToUpdate) {
+            const value = fieldsToUpdate[key];
+            if (value !== "" && value !== null) {
+                validKeys.push(key);
+                validValues.push(value);
+            }
+        }
+
+        if (validKeys.length === 0) {
+             return res.status(400).json({ error: 'La solicitud no contiene datos válidos para actualizar' });
+        }
+
+        const change = validKeys.map(key => `${key} = ?`).join(', ');
+        const finalValues = [...validValues, id];
+        
+        const sqlUpdate = `UPDATE fighters SET ${change} WHERE fighter_id = ?`;
+
+        const [result] = await pool.query(sqlUpdate, finalValues);
+
+        if (result.affectedRows === 0) {
+            return res.status(200).json({
+                status: "success",
+                message: "Luchador encontrado, pero no se detectaron cambios",
+            });
+        }
+
+        res.status(200).json({ 
+            status: "success",
+            message: "Luchador actualizado con éxito",
+            data_updated: fieldsToUpdate,
+        });
+
+    } catch (error) {
+        console.error("Error al actualizar el peleador: ", error);
+        
+        //Manejo de error de clave duplicada en el slug
+        if (error.code === 'ER_DUP_ENTRY') {
+             return res.status(409).json({
+                 error: "error", 
+                 message: "Ya existe otro luchador con un nombre de slug similar. Modifca el nombre",
+                });
+        }
+
+        res.status(500).json({ 
+            status: "error",
+            message: "Error interno al actualizar el peleador" 
+        });
+    }
+}
 
 //Borrar peleador
+const deleteFighter = async (req, res) => {
+
+    const { id } = req.params;
+
+    try{
+
+        const sqlQuery = 'DELETE FROM fighters WHERE fighter_id = ?';
+        const [ result ] = await pool.query(sqlQuery, [id] );
+
+           if (result.affectedRows === 0) {
+                return res.status(404).json({ 
+                    status: "error",
+                    message: "Luchador no encontrado ",
+                });
+            }
+
+        console.log("Luchador eliminado con éxito!");
+        res.status(204).send();
+        
+    }catch(error){
+        console.error("Error al borrar al peleador: ", error);
+
+        res.status(500).json({
+            status: "error",
+            message: "Error al intentar borrar al peleador",
+        })
+    }
+
+}
 
 module.exports = {
     getFighters,
     createFighters,
     getFightersById,
+    updateFighter,
+    deleteFighter,
+    getFightersBySlug,
 }
