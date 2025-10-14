@@ -9,8 +9,8 @@ router.get('/', eventsController.getEvents);
 router.post('/', eventsController.createEvents);
 router.get('/id/:id', eventsController.getEventsById);      
 router.get('/slug/:slug', eventsController.getEventsBySlug); 
-//router.put('/id/:id', eventsController.updateEvents);        
-//router.delete('/id/:id', eventsController.deleteEvents);    
+router.put('/id/:id', eventsController.updateEvents);        
+router.delete('/id/:id', eventsController.deleteEvents);    
 
 
 
