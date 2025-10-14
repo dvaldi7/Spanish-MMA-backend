@@ -1,4 +1,5 @@
 const pool = require("../config/db");
+const slugify = require('slugify'); 
 
 // Ver compañías
 const getCompanies = async (req, res) => {
@@ -12,11 +13,11 @@ const getCompanies = async (req, res) => {
             error: 'Error interno del servidor al obtener compañías.'
         });
     }
-};
+}
 
 //Crear nueva compañía
 const createCompanies = async (req, res) => {
-    const { name, headquarters, country } = req.body;
+    const { name, headquarters, country, website } = req.body;
 
     if (!name) {
         return res.status(400).json({
@@ -26,28 +27,69 @@ const createCompanies = async (req, res) => {
     }
 
     try {
+        const companySlug = slugify(name, { lower: true, strict: true });
 
-        const [result] = await pool.query(
-            `INSERT INTO companies (name, headquarters, country) VALUES (?, ?, ?)`,
-            [name, headquarters, country]
-        );
+        const sqlQuery = ` INSERT INTO companies (name, headquarters, country, website, slug) VALUES (?, ?, ?, ?, ?)`;
+        const values = [
+            name,
+            headquarters || null,
+            country || null,
+            website || null,
+            companySlug,
+            ];
+
+        const [result] = await pool.query(sqlQuery, values);
+        const newCompanyId = result.insertId;
 
         res.status(201).json({
-            message: 'Compañía creada con éxito',
-            companyId: result.insertId,
+            status: "success",
+            message: "Compañía creada con éxito",
+            company_id: newCompanyId,
+            company_slug: companySlug,
             data: req.body
         });
 
 
     } catch (error) {
+        console.error("Error al crear la compañía: ", error);
 
-        console.log(error);
+        // Si el Slug ya existe
+        if (error.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({
+                status: "error",
+                message: "Ya existe una compañía con ese nombre (slug duplicado)",
+            });
+        }
+
         return res.status(500).json({
             error: "error",
             message: "Error al crear la compañía",
         });
     }
 }
+
+//Obtener compañías por ID
+/*const getCompaniesById = async (req, res) => {
+
+
+    try{
+
+    }catch(error){
+        console.error("Error al obtener la compañía por su ID: ", error);
+
+        res.status(500).json({
+            status: "error",
+            message: "Error al obtener la compañía por su ID",
+        })
+    }
+}*/
+
+
+//Obtener compañías por SLUG
+
+//Actualizar compañías
+
+//Borrar compañías
 
 module.exports = {
     getCompanies,
