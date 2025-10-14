@@ -69,10 +69,25 @@ const createCompanies = async (req, res) => {
 }
 
 //Obtener compañías por ID
-/*const getCompaniesById = async (req, res) => {
+const getCompaniesById = async (req, res) => {
 
+    const { id } = req.params;
 
     try{
+        const sqlQuery = 'SELECT * FROM companies WHERE company_id = ?';
+        const [ companies ] = await pool.query(sqlQuery, [id]);
+
+        if (companies.length === 0){
+            return res.status(404).json({
+                status: "error",
+                message: "Error al obtener la compañía con ese ID",
+            });
+        }
+
+        res.status(200).json({
+            status: "success",
+            company: companies[0],
+        })
 
     }catch(error){
         console.error("Error al obtener la compañía por su ID: ", error);
@@ -82,7 +97,7 @@ const createCompanies = async (req, res) => {
             message: "Error al obtener la compañía por su ID",
         })
     }
-}*/
+}
 
 
 //Obtener compañías por SLUG
@@ -94,4 +109,5 @@ const createCompanies = async (req, res) => {
 module.exports = {
     getCompanies,
     createCompanies,
+    getCompaniesById,
 }
