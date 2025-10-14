@@ -99,10 +99,40 @@ const getCompaniesById = async (req, res) => {
     }
 }
 
-
 //Obtener compañías por SLUG
+const getCompaniesBySlug = async (req, res) => {
+
+    const { slug } = req.params;
+
+    try{
+
+        const sqlQuery = 'SELECT * FROM companies WHERE slug = ?';
+        const [ companies ] = await pool.query(sqlQuery, [slug]);
+
+         if (companies.length === 0) {
+            return res.status(404).json({
+                status: "error",
+                message: "Compañía no encontrada por Slug",
+            });
+        }
+
+        res.status(200).json({
+            status: "success",
+            company: companies[0],
+        });
+
+    }catch(error){
+        console.error("Error al obtener la compañía por su SLUG: ", error);
+
+        res.status(500).json({
+            status: "error",
+            message: "Error al obtener la compañía por su SLUG",
+        });
+    }
+}
 
 //Actualizar compañías
+
 
 //Borrar compañías
 
@@ -110,4 +140,5 @@ module.exports = {
     getCompanies,
     createCompanies,
     getCompaniesById,
+    getCompaniesBySlug,
 }
