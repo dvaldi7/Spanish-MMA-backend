@@ -220,6 +220,35 @@ const updateCompanies = async (req, res) => {
 }
 
 //Borrar compañías
+const deleteCompanies = async (req, res) => {
+    const { id } = req.params;
+
+    try{
+
+        const sqlQuery = 'DELETE FROM companies WHERE company_id = ?';
+        const [ result ] = await pool.query(sqlQuery, [id]);
+
+        if (result.affectedRows === 0){
+            return res.status(400).json({
+                status: "error",
+                message: "Compañía no encontrada para eliminar",
+            })
+        }
+
+        res.status(200).json({
+            status: "success",
+            message: `Compañía con id ${id} eliminada con éxito`,
+        })
+
+    }catch(error){
+        console.error("Error al intentar borrar la compañía: ", error);
+        res.status(500).json({
+            status: "error",
+            message: "Error al intentar borrar la compaía!",
+        })
+    }
+}
+
 
 module.exports = {
     getCompanies,
@@ -227,4 +256,5 @@ module.exports = {
     getCompaniesById,
     getCompaniesBySlug,
     updateCompanies,
+    deleteCompanies,
 }

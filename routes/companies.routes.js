@@ -10,7 +10,7 @@ router.post('/', companiesController.createCompanies);
 router.get('/id/:id', companiesController.getCompaniesById);
 router.get('/slug/:slug', companiesController.getCompaniesBySlug);
 router.put('/id/:id', companiesController.updateCompanies);
-//router.delete('/id/:id', companiesController.deleteCompanies);
+router.delete('/id/:id', companiesController.deleteCompanies);
 
 // Exportamos el router para usarlo en index.js
 module.exports = router;
