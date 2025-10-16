@@ -252,6 +252,56 @@ const deleteEvents = async (req, res) => {
     }
 }
 
+//Añadir un peleador a un evento de MMA
+const addFighterToEvent = async (req, res) => {
+    const { eventId } = req.params;
+    const { fighterId } = req.body;
+
+    if (!fighterId){
+        return res.status(400).json({
+            status: "error",
+            message: "Falta el campo 'fighterId' para añadir el pelador al evento",
+        });
+    }
+
+    try{
+        const sqlQuery = 'INSERT INTO event_fighters (event_id, fighter_id) VALUES (?, ?)';
+        const values = [eventId, fighterId];
+
+        const [ result ] = await pool.query(sqlQuery, values);
+
+        res.status(200).json({
+            status: "success",
+            message: `Luchador con id ${fighterId} añadido al evento ${eventId}`,
+            event_fighter_id: result.insertId,
+        })
+
+    }catch(error){
+        console.error("Error al añadir al luchador al evento: ", error);
+
+        // si el luchador ya está en el evento para que no se duplique
+        if (error.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({
+                status: "error",
+                message: "El luchador ya se encuentra en la lista de este evento",
+            });
+        }
+
+        // Si event_id o fighter_id no existen
+        if (error.code === 'ER_NO_REFERENCED_ROW_2') {
+             return res.status(404).json({
+                 status: "error",
+                 message: "El evento o el luchador especificado no existen",
+             });
+        }
+
+        res.status(500).json({
+            status: "error",
+            message: "Error al añadir al luchador al evento",
+        })
+    }
+}
+
 
 
 module.exports = {
@@ -261,4 +311,5 @@ module.exports = {
     getEventsBySlug,
     updateEvents,
     deleteEvents,
+    addFighterToEvent,
 };
