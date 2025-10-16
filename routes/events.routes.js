@@ -13,10 +13,13 @@ router.put('/id/:id', eventsController.updateEvents);
 router.delete('/id/:id', eventsController.deleteEvents); 
 
 // Ruta para obtener los luchadores de un evento
-//router.get('/id/:eventId/fighters', eventsController.getEventRoster);
+router.get('/id/:eventId/fighters', eventsController.getEventRoster);
 
 // Ruta para añadir un luchador a un evento
-router.post('/id/:eventId/fighters', eventsController.addFighterToEvent);    
+router.post('/id/:eventId/fighters', eventsController.addFighterToEvent);
+
+// Ruta para eliminar un luchador de un evento
+router.delete('/id/:eventId/fighters/:fighterId', eventsController.deleteFighterFromEvent);
 
 
 

@@ -254,6 +254,7 @@ const deleteEvents = async (req, res) => {
 
 //Añadir un peleador a un evento de MMA
 const addFighterToEvent = async (req, res) => {
+    
     const { eventId } = req.params;
     const { fighterId } = req.body;
 
@@ -302,6 +303,70 @@ const addFighterToEvent = async (req, res) => {
     }
 }
 
+//Obtener todos los peleadores de un evento
+const getEventRoster = async (req, res) => {
+
+    const { eventId } = req.params;
+
+    try{
+
+        const sqlQuery = `SELECT f.fighter_id, f.first_name, f.last_name, f.nickname, f.weight_class, f.slug
+            FROM event_fighters ef JOIN fighters f ON ef.fighter_id = f.fighter_id WHERE ef.event_id = ?`;
+        
+        const [ fighters ] = await pool.query(sqlQuery, [eventId]);
+
+        if (fighters.length === 0){
+            return res.status(200).json({
+                status: "success",
+                message: `El evento ${eventId} no tiene luchadores asignados (o el evento no existe)`,
+                roster: [],
+            });
+        }
+
+        res.status(200).json({
+            status: "success",
+            results: fighters.length,
+            roster: fighters,
+        });
+
+    }catch(error){
+        console.error("Error al obtener los peleadores del evento");
+        res.status(500).json({
+            status: "error",
+            message: "Error al obtener los peleadores del evento",
+        })
+    }
+}
+
+//Borrar peleadores de un evento
+const deleteFighterFromEvent = async (req, res) => {
+
+    const { eventId, fighterId } = req.params;
+
+    try{
+        const sqlQuery = 'DELETE FROM event_fighters WHERE event_id = ? AND fighter_id = ?';
+        const [ result ] = await pool.query(sqlQuery, [eventId, fighterId]);
+
+        if (result.affectedRows === 0){
+            return res.status(404).json({
+             status: "error",
+                message: "No se ha encontrado relación entre el evento y el luchador",
+            });
+        }
+
+        res.status(200).json({
+            status: "success",
+            message: `Luchador con id ${fighterId} eliminado del evento ${eventId}`,
+        })
+
+    }catch(error){
+        console.error("Error al eliminar la relación luchador/evento: ", error);
+        res.status(500).json({ 
+            status: "error",
+            message: "Error interno al eliminar la relación peleador/evento",
+        });
+    }
+}
 
 
 module.exports = {
@@ -312,4 +377,6 @@ module.exports = {
     updateEvents,
     deleteEvents,
     addFighterToEvent,
+    getEventRoster,
+    deleteFighterFromEvent,
 };
