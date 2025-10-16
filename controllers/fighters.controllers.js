@@ -254,6 +254,8 @@ const deleteFighter = async (req, res) => {
 
 }
 
+
+
 module.exports = {
     getFighters,
     createFighters,
