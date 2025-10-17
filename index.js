@@ -1,11 +1,11 @@
 require('dotenv').config();
-
 const express = require('express');
 const cors = require('cors');
 const pool = require("./config/db");
 const fightersRouter = require("./routes/fighters.routes");
 const companiesRouter = require("./routes/companies.routes");
 const eventsRouter = require("./routes/events.routes");
+const authRoutes = require("./routes/auth.routes");
 
 
 const app = express();
@@ -14,6 +14,7 @@ const PORT = process.env.PORT || 3001;
 // Middleware para JSON
 app.use(express.json());
 app.use(cors());
+app.use('/api/auth', authRoutes);
 
 // Ruta de prueba
 app.get('/', (req, res) => {
