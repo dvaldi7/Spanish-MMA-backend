@@ -1,9 +1,12 @@
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const pool = require("./config/db");
 const fightersRouter = require("./routes/fighters.routes");
 const companiesRouter = require("./routes/companies.routes");
 const eventsRouter = require("./routes/events.routes");
+
 
 const app = express();
 const PORT = process.env.PORT || 3001;
