@@ -3,23 +3,23 @@ const router = express.Router();
 
 //Importar controlador
 const eventsController = require("../controllers/events.controllers");
+const auth = require("../middleware/auth");
 
-//Rutas
+//RUTAS PÚBLICAS
 router.get('/', eventsController.getEvents);
-router.post('/', eventsController.createEvents);
 router.get('/id/:id', eventsController.getEventsById);      
 router.get('/slug/:slug', eventsController.getEventsBySlug); 
-router.put('/id/:id', eventsController.updateEvents);        
-router.delete('/id/:id', eventsController.deleteEvents); 
-
-// Ruta para obtener los luchadores de un evento
+// Ruta para obtener los luchadores de un evento (pública)
 router.get('/id/:eventId/fighters', eventsController.getEventRoster);
 
+//RUTAS PRIVADAS
+router.post('/', auth(['admin']), eventsController.createEvents);
+router.put('/id/:id', auth(['admin']), eventsController.updateEvents);        
+router.delete('/id/:id', auth(['admin']), eventsController.deleteEvents); 
 // Ruta para añadir un luchador a un evento
-router.post('/id/:eventId/fighters', eventsController.addFighterToEvent);
-
+router.post('/id/:eventId/fighters', auth(['admin']), eventsController.addFighterToEvent);
 // Ruta para eliminar un luchador de un evento
-router.delete('/id/:eventId/fighters/:fighterId', eventsController.deleteFighterFromEvent);
+router.delete('/id/:eventId/fighters/:fighterId', auth(['admin']), eventsController.deleteFighterFromEvent);
 
 
 
