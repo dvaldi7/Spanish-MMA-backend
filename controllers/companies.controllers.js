@@ -249,6 +249,40 @@ const deleteCompanies = async (req, res) => {
     }
 }
 
+//Buscar compañías
+const searchCompanies = async (req, res) => {
+    const searchTerm = req.query.q;
+
+    if (!searchTerm) {
+        return res.status(400).json({
+            status: "error",
+            message: "Falta el parámetro de búsqueda 'q' ",
+        });
+    }
+
+    try {
+        const searchPattern = `%${searchTerm}%`;
+
+        const sqlQuery = `SELECT company_id, name, headquarters, slug FROM companies  WHERE name LIKE ? OR headquarters LIKE ? OR slug LIKE ?`;
+
+        const [companies] = await pool.query(sqlQuery, [searchPattern, searchPattern, searchPattern,]);
+
+        res.status(200).json({
+            status: "success",
+            results: companies.length,
+            companies: companies,
+        });
+
+    } catch (error) {
+        console.error("Error al buscar compañías: ", error);
+        res.status(500).json({
+            status: "error",
+            message: "Error interno del servidor al realizar la búsqueda",
+        });
+    }
+};
+
+
 
 module.exports = {
     getCompanies,
@@ -257,4 +291,5 @@ module.exports = {
     getCompaniesBySlug,
     updateCompanies,
     deleteCompanies,
+    searchCompanies,
 }

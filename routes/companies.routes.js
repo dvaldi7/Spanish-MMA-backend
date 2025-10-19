@@ -9,6 +9,7 @@ const auth = require("../middleware/auth");
 router.get('/', companiesController.getCompanies);
 router.get('/id/:id', companiesController.getCompaniesById);
 router.get('/slug/:slug', companiesController.getCompaniesBySlug);
+router.get('/search', companiesController.searchCompanies);
 
 //RUTAS PRIVADAS
 router.post('/', auth(['admin']), companiesController.createCompanies);
