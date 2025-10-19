@@ -368,6 +368,40 @@ const deleteFighterFromEvent = async (req, res) => {
     }
 }
 
+//Buscar eventos
+const searchEvents = async (req, res) => {
+    const searchTerm = req.query.q;
+
+    if (!searchTerm) {
+        return res.status(400).json({
+            status: "error",
+            message: "Falta el parámetro de búsqueda 'q' ",
+        });
+    }
+
+    try {
+        const searchPattern = `%${searchTerm}%`;
+
+        const sqlQuery = `
+            SELECT event_id, name, location, date, slug FROM events WHERE name LIKE ? OR location LIKE ? OR slug LIKE ?`;
+
+        const [events] = await pool.query(sqlQuery, [searchPattern, searchPattern, searchPattern,]);
+
+        res.status(200).json({
+            status: "success",
+            results: events.length,
+            events: events,
+        });
+
+    } catch (error) {
+        console.error("Error al buscar eventos:", error);
+        res.status(500).json({
+            status: "error",
+            message: "Error interno del servidor al realizar la búsqueda",
+        });
+    }
+};
+
 
 module.exports = {
     getEvents,
@@ -379,4 +413,5 @@ module.exports = {
     addFighterToEvent,
     getEventRoster,
     deleteFighterFromEvent,
+    searchEvents,
 };

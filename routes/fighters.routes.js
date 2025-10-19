@@ -9,6 +9,7 @@ const auth = require("../middleware/auth");
 router.get('/', fightersController.getFighters);
 router.get('/id/:id', fightersController.getFightersById);
 router.get('/slug/:slug', fightersController.getFightersBySlug);
+router.get('/search', fightersController.searchFighters);
 
 //Rutas privadas
 router.post('/', auth(['admin']), fightersController.createFighters);

@@ -8,7 +8,8 @@ const auth = require("../middleware/auth");
 //RUTAS PÚBLICAS
 router.get('/', eventsController.getEvents);
 router.get('/id/:id', eventsController.getEventsById);      
-router.get('/slug/:slug', eventsController.getEventsBySlug); 
+router.get('/slug/:slug', eventsController.getEventsBySlug);
+router.get('/search', eventsController.searchEvents);
 // Ruta para obtener los luchadores de un evento (pública)
 router.get('/id/:eventId/fighters', eventsController.getEventRoster);
 

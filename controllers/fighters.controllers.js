@@ -1,7 +1,7 @@
 const pool = require("../config/db");
 const slugify = require("slugify");
 
-// Ver peleadores
+//Ver peleadores
 const getFighters = async (req, res) => {
     try {
         const [fighters] = await pool.query('SELECT * FROM fighters');
@@ -13,9 +13,9 @@ const getFighters = async (req, res) => {
             error: "Error al obtener luchadores",
         });
     }
-};
+}
 
-// Crear nuevo peleador
+//Crear nuevo peleador
 const createFighters = async (req, res) => {
     const { 
         first_name, 
@@ -254,6 +254,51 @@ const deleteFighter = async (req, res) => {
 
 }
 
+//Buscar peleadores
+const searchFighters = async (req, res) => {
+  
+    const searchTerm = req.query.q;
+
+    if (!searchTerm) {
+        return res.status(400).json({
+            status: "error",
+            message: "Falta el parámetro de búsqueda para el peleador"
+        });
+    }
+
+    try {
+      
+        const searchPattern = `%${searchTerm}%`;
+        const sqlQuery = `
+            SELECT 
+                fighter_id, first_name, last_name, nickname, weight_class, slug 
+            FROM fighters 
+            WHERE first_name LIKE ? OR last_name LIKE ? OR nickname LIKE ? OR slug LIKE ?
+        `;
+
+        const [fighters] = await pool.query(sqlQuery, [
+            searchPattern,
+            searchPattern,
+            searchPattern,
+            searchPattern
+        ]);
+
+        res.status(200).json({
+            status: "success",
+            results: fighters.length,
+            fighters: fighters,
+        });
+
+    } catch (error) {
+        console.error("Error al buscar luchadores: ", error);
+        res.status(500).json({
+            status: "error",
+            message: "Error interno del servidor al realizar la búsqueda",
+        });
+    }
+}
+
+
 
 
 module.exports = {
@@ -263,4 +308,5 @@ module.exports = {
     updateFighter,
     deleteFighter,
     getFightersBySlug,
+    searchFighters,
 }
