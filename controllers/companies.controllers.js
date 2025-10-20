@@ -263,7 +263,8 @@ const searchCompanies = async (req, res) => {
     try {
         const searchPattern = `%${searchTerm}%`;
 
-        const sqlQuery = `SELECT company_id, name, headquarters, slug FROM companies  WHERE name LIKE ? OR headquarters LIKE ? OR slug LIKE ?`;
+        const sqlQuery = `SELECT company_id, name, headquarters, slug FROM companies 
+                             WHERE name LIKE ? OR headquarters LIKE ? OR slug LIKE ?`;
 
         const [companies] = await pool.query(sqlQuery, [searchPattern, searchPattern, searchPattern,]);
 

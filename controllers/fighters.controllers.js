@@ -298,6 +298,37 @@ const searchFighters = async (req, res) => {
     }
 }
 
+//Añadir un peleador a una compañía
+const assignFighterToCompany = async (req, res) => {
+
+    const { fighterId, companyId } = req. params;
+
+    try{
+
+        const sqlQuery = 'UPDATE fighters SET company_id = ? WHERE fighter_id = ?';
+        const [ result ] = await pool.query(sqlQuery, [companyId, fighterId]);
+
+        if (result.affectedRows === 0){
+            return res.status(404).json({
+                status: "error",
+                message: `Luchador con el id ${fighterId} no encontrado`,
+            });
+        }
+
+        res.status(200).json({
+            status: "success",
+            message: `Luchador ${fighterId} asignado a la compañía ${companyId} con éxito.`,
+        })
+
+    }catch(error){
+        console.error("Error al añadir al peleador: ", error);
+        res.status(500).json({
+            status: "error",
+            message: "Error al añadir al peleador a la compañía",
+        })
+    }
+}
+
 
 
 
@@ -309,4 +340,5 @@ module.exports = {
     deleteFighter,
     getFightersBySlug,
     searchFighters,
+    assignFighterToCompany,
 }

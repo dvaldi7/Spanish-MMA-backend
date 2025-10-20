@@ -14,6 +14,7 @@ router.get('/search', fightersController.searchFighters);
 //Rutas privadas
 router.post('/', auth(['admin']), fightersController.createFighters);
 router.put('/id/:id', auth(['admin']), fightersController.updateFighter);
+router.put('/assign/:fighterId/company/:companyId', auth(['admin']), fightersController.assignFighterToCompany);
 router.delete('/id/:id', auth(['admin']), fightersController.deleteFighter);
 
 
