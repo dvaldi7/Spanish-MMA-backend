@@ -285,12 +285,11 @@ const searchFighters = async (req, res) => {
     try {
       
         const searchPattern = `%${searchTerm}%`;
-        const sqlQuery = `
-            SELECT 
-                fighter_id, first_name, last_name, nickname, weight_class, slug 
-            FROM fighters 
-            WHERE first_name LIKE ? OR last_name LIKE ? OR nickname LIKE ? OR slug LIKE ?
-        `;
+        const sqlQuery = `SELECT f.*, c.name AS company_name, c.slug AS company_slug 
+                            FROM fighters f
+                            LEFT JOIN companies c ON f.company_id = c.company_id
+                            WHERE f.first_name LIKE ? OR f.last_name LIKE ? OR 
+                                    f.nickname LIKE ? OR f.slug LIKE ?`;
 
         const [fighters] = await pool.query(sqlQuery, [
             searchPattern,
