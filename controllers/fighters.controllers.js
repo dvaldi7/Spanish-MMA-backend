@@ -96,7 +96,12 @@ const getFightersById = async (req, res) => {
     const { id } = req.params;
 
     try{
-        const [fighters ] = await pool.query('SELECT * FROM fighters WHERE fighter_id = ?', [id]);
+
+        const sqlQuery = `SELECT f.*, c.name AS company_name, c.slug AS company_slug 
+                            FROM fighters f
+                            LEFT JOIN companies c ON f.company_id = c.company_id
+                            WHERE f.fighter_id = ?`;
+        const [ fighters ] = await pool.query(sqlQuery, [id]);
 
         if(fighters.length === 0){
             return res.status(404).json({
