@@ -4,13 +4,24 @@ const slugify = require("slugify");
 //Ver peleadores
 const getFighters = async (req, res) => {
     try {
-        const [fighters] = await pool.query('SELECT * FROM fighters');
-        res.json(fighters);
+        const sqlQuery = `SELECT f.*, c.name AS company_name, c.slug AS company_slug 
+                            FROM fighters f
+                            LEFT JOIN companies c ON f.company_id = c.company_id
+                            ORDER BY f.fighter_id ASC;`;
 
-    } catch (err) {
-        console.error("Error al obtener los peleadores", err)
+        const [ fighters ] = await pool.query(sqlQuery);
+        
+        res.status(200).json({
+            status: "success",
+            results: fighters.length,
+            fighters: fighters,
+        })
+
+    } catch (error) {
+        console.error("Error al obtener los peleadores: ", error)
         res.status(500).json({
-            error: "Error al obtener luchadores",
+            error: "error",
+            message: "Error al obtener los luchadores",
         });
     }
 }
