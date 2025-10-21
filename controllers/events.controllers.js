@@ -4,14 +4,39 @@ const slugify = require("slugify");
 // Ver eventos
 const getEvents = async (req, res) => {
 
-    try {
-        const [events] = await pool.query('SELECT * FROM events');
-        res.json(events);
+    const page = parseInt(req.query.page) || 1; // Página solicitada (default: 1)
+    const limit = parseInt(req.query.limit) || 20;
 
-    } catch (err) {
-        console.error('Error al obtener eventos:', err);
+    const offset = (page - 1) * limit; 
+
+    try {
+        const sqlQuery = `SELECT * FROM events ORDER BY date ASC LIMIT ? OFFSET ?;`;
+        
+        const countQuery = 'SELECT COUNT(event_id) AS total_events FROM events;';
+        
+        const [events] = await pool.query(sqlQuery, [limit, offset]);
+        const [totalResults] = await pool.query(countQuery);
+        
+        const totalEvents = totalResults[0].total_events;
+        const totalPages = Math.ceil(totalEvents / limit);
+
+        res.status(200).json({
+            status: "success",
+            pagination: {
+                total_items: totalEvents,
+                total_pages: totalPages,
+                current_page: page,
+                limit: limit
+            },
+            results: events.length,
+            events: events,
+        });
+
+    } catch (error) {
+        console.error('Error al obtener eventos:', error);
         res.status(500).json({
-            error: 'Error interno del servidor al obtener eventos.',
+            status: "error",
+            message: 'Error interno del servidor al obtener eventos',
         });
     }
 };
