@@ -3,16 +3,36 @@ const slugify = require("slugify");
 
 //Ver peleadores
 const getFighters = async (req, res) => {
+
+    const page = parseInt(req.query.page) || 1; 
+    const limit = parseInt(req.query.limit) || 20;
+
+    const offset = (page - 1) * limit;
+
     try {
         const sqlQuery = `SELECT f.*, c.name AS company_name, c.slug AS company_slug 
                             FROM fighters f
                             LEFT JOIN companies c ON f.company_id = c.company_id
-                            ORDER BY f.fighter_id ASC;`;
+                            ORDER BY f.fighter_id ASC
+                            LIMIT ?
+                            OFFSET ? ;`;
 
-        const [ fighters ] = await pool.query(sqlQuery);
+        const countQuery = 'SELECT COUNT(fighter_id) AS total_fighters FROM fighters;';
         
+        const [fighters] = await pool.query(sqlQuery, [limit, offset]);
+        const [totalResults] = await pool.query(countQuery);
+        
+        const totalFighters = totalResults[0].total_fighters;
+        const totalPages = Math.ceil(totalFighters / limit);
+
         res.status(200).json({
             status: "success",
+            pagination: {
+                total_items: totalFighters,
+                total_pages: totalPages,
+                current_page: page,
+                limit: limit
+            },
             results: fighters.length,
             fighters: fighters,
         })
