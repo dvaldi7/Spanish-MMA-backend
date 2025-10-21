@@ -3,14 +3,40 @@ const slugify = require('slugify');
 
 // Ver compañías
 const getCompanies = async (req, res) => {
+
+    const page = parseInt(req.query.page) || 1; 
+    const limit = parseInt(req.query.limit) || 20; 
+    
+    const offset = (page - 1) * limit; 
+
     try {
-        const [companies] = await pool.query('SELECT * FROM companies');
-        res.json(companies);
+        const sqlQuery = `SELECT * FROM companies ORDER BY company_id ASC LIMIT ? OFFSET ?;`;
+        
+        const countQuery = 'SELECT COUNT(company_id) AS total_companies FROM companies;';
+        
+        const [ companies ] = await pool.query(sqlQuery, [limit, offset]);
+        const [ totalResults ] = await pool.query(countQuery);
+        
+        const totalCompanies = totalResults[0].total_companies;
+        const totalPages = Math.ceil(totalCompanies / limit);
+
+        res.status(200).json({
+            status: "success",
+            pagination: {
+                total_items: totalCompanies,
+                total_pages: totalPages,
+                current_page: page,
+                limit: limit
+            },
+            results: companies.length,
+            companies: companies,
+        });
 
     } catch (error){
         console.error('Error al obtener compañías:', error)
         res.status(500).json({
-            error: 'Error interno del servidor al obtener compañías.'
+            status: "error",
+            message: 'Error interno del servidor al obtener compañías',
         });
     }
 }
