@@ -1,21 +1,52 @@
 const pool = require("../config/db");
 const slugify = require("slugify");
 
-// Ver peleadores
+//Ver peleadores
 const getFighters = async (req, res) => {
-    try {
-        const [fighters] = await pool.query('SELECT * FROM fighters');
-        res.json(fighters);
 
-    } catch (err) {
-        console.error("Error al obtener los peleadores", err)
+    const page = parseInt(req.query.page) || 1; 
+    const limit = parseInt(req.query.limit) || 20;
+
+    const offset = (page - 1) * limit;
+
+    try {
+        const sqlQuery = `SELECT f.*, c.name AS company_name, c.slug AS company_slug 
+                            FROM fighters f
+                            LEFT JOIN companies c ON f.company_id = c.company_id
+                            ORDER BY f.fighter_id ASC
+                            LIMIT ?
+                            OFFSET ? ;`;
+
+        const countQuery = 'SELECT COUNT(fighter_id) AS total_fighters FROM fighters;';
+        
+        const [fighters] = await pool.query(sqlQuery, [limit, offset]);
+        const [totalResults] = await pool.query(countQuery);
+        
+        const totalFighters = totalResults[0].total_fighters;
+        const totalPages = Math.ceil(totalFighters / limit);
+
+        res.status(200).json({
+            status: "success",
+            pagination: {
+                total_items: totalFighters,
+                total_pages: totalPages,
+                current_page: page,
+                limit: limit
+            },
+            results: fighters.length,
+            fighters: fighters,
+        })
+
+    } catch (error) {
+        console.error("Error al obtener los peleadores: ", error)
         res.status(500).json({
-            error: "Error al obtener luchadores",
+            error: "error",
+            message: "Error al obtener los luchadores",
         });
     }
-};
+}
 
-// Crear nuevo peleador
+//Crear nuevo peleador
 const createFighters = async (req, res) => {
     const { 
         first_name, 
@@ -85,7 +116,12 @@ const getFightersById = async (req, res) => {
     const { id } = req.params;
 
     try{
-        const [fighters ] = await pool.query('SELECT * FROM fighters WHERE fighter_id = ?', [id]);
+
+        const sqlQuery = `SELECT f.*, c.name AS company_name, c.slug AS company_slug 
+                            FROM fighters f
+                            LEFT JOIN companies c ON f.company_id = c.company_id
+                            WHERE f.fighter_id = ?`;
+        const [ fighters ] = await pool.query(sqlQuery, [id]);
 
         if(fighters.length === 0){
             return res.status(404).json({
@@ -254,6 +290,81 @@ const deleteFighter = async (req, res) => {
 
 }
 
+//Buscar peleadores
+const searchFighters = async (req, res) => {
+  
+    const searchTerm = req.query.q;
+
+    if (!searchTerm) {
+        return res.status(400).json({
+            status: "error",
+            message: "Falta el parámetro de búsqueda para el peleador"
+        });
+    }
+
+    try {
+      
+        const searchPattern = `%${searchTerm}%`;
+        const sqlQuery = `SELECT f.*, c.name AS company_name, c.slug AS company_slug 
+                            FROM fighters f
+                            LEFT JOIN companies c ON f.company_id = c.company_id
+                            WHERE f.first_name LIKE ? OR f.last_name LIKE ? OR 
+                                    f.nickname LIKE ? OR f.slug LIKE ?`;
+
+        const [fighters] = await pool.query(sqlQuery, [
+            searchPattern,
+            searchPattern,
+            searchPattern,
+            searchPattern
+        ]);
+
+        res.status(200).json({
+            status: "success",
+            results: fighters.length,
+            fighters: fighters,
+        });
+
+    } catch (error) {
+        console.error("Error al buscar luchadores: ", error);
+        res.status(500).json({
+            status: "error",
+            message: "Error interno del servidor al realizar la búsqueda",
+        });
+    }
+}
+
+//Añadir un peleador a una compañía
+const assignFighterToCompany = async (req, res) => {
+
+    const { fighterId, companyId } = req. params;
+
+    try{
+
+        const sqlQuery = 'UPDATE fighters SET company_id = ? WHERE fighter_id = ?';
+        const [ result ] = await pool.query(sqlQuery, [companyId, fighterId]);
+
+        if (result.affectedRows === 0){
+            return res.status(404).json({
+                status: "error",
+                message: `Luchador con el id ${fighterId} no encontrado`,
+            });
+        }
+
+        res.status(200).json({
+            status: "success",
+            message: `Luchador ${fighterId} asignado a la compañía ${companyId} con éxito.`,
+        })
+
+    }catch(error){
+        console.error("Error al añadir al peleador: ", error);
+        res.status(500).json({
+            status: "error",
+            message: "Error al añadir al peleador a la compañía",
+        })
+    }
+}
+
+
 
 
 module.exports = {
@@ -263,4 +374,6 @@ module.exports = {
     updateFighter,
     deleteFighter,
     getFightersBySlug,
+    searchFighters,
+    assignFighterToCompany,
 }

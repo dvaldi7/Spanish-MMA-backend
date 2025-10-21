@@ -3,14 +3,19 @@ const router = express.Router();
 
 //Importar controladores 
 const fightersController = require("../controllers/fighters.controllers");
+const auth = require("../middleware/auth");
 
-//Rutas
+//Rutas públicas
 router.get('/', fightersController.getFighters);
-router.post('/', fightersController.createFighters);
 router.get('/id/:id', fightersController.getFightersById);
 router.get('/slug/:slug', fightersController.getFightersBySlug);
-router.put('/id/:id', fightersController.updateFighter);
-router.delete('/id/:id', fightersController.deleteFighter);
+router.get('/search', fightersController.searchFighters);
+
+//Rutas privadas
+router.post('/', auth(['admin']), fightersController.createFighters);
+router.put('/id/:id', auth(['admin']), fightersController.updateFighter);
+router.put('/assign/:fighterId/company/:companyId', auth(['admin']), fightersController.assignFighterToCompany);
+router.delete('/id/:id', auth(['admin']), fightersController.deleteFighter);
 
 
 

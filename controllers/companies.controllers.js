@@ -3,14 +3,40 @@ const slugify = require('slugify');
 
 // Ver compañías
 const getCompanies = async (req, res) => {
+
+    const page = parseInt(req.query.page) || 1; 
+    const limit = parseInt(req.query.limit) || 20; 
+    
+    const offset = (page - 1) * limit; 
+
     try {
-        const [companies] = await pool.query('SELECT * FROM companies');
-        res.json(companies);
+        const sqlQuery = `SELECT * FROM companies ORDER BY company_id ASC LIMIT ? OFFSET ?;`;
+        
+        const countQuery = 'SELECT COUNT(company_id) AS total_companies FROM companies;';
+        
+        const [ companies ] = await pool.query(sqlQuery, [limit, offset]);
+        const [ totalResults ] = await pool.query(countQuery);
+        
+        const totalCompanies = totalResults[0].total_companies;
+        const totalPages = Math.ceil(totalCompanies / limit);
+
+        res.status(200).json({
+            status: "success",
+            pagination: {
+                total_items: totalCompanies,
+                total_pages: totalPages,
+                current_page: page,
+                limit: limit
+            },
+            results: companies.length,
+            companies: companies,
+        });
 
     } catch (error){
         console.error('Error al obtener compañías:', error)
         res.status(500).json({
-            error: 'Error interno del servidor al obtener compañías.'
+            status: "error",
+            message: 'Error interno del servidor al obtener compañías',
         });
     }
 }
@@ -249,6 +275,41 @@ const deleteCompanies = async (req, res) => {
     }
 }
 
+//Buscar compañías
+const searchCompanies = async (req, res) => {
+    const searchTerm = req.query.q;
+
+    if (!searchTerm) {
+        return res.status(400).json({
+            status: "error",
+            message: "Falta el parámetro de búsqueda 'q' ",
+        });
+    }
+
+    try {
+        const searchPattern = `%${searchTerm}%`;
+
+        const sqlQuery = `SELECT company_id, name, headquarters, slug FROM companies 
+                             WHERE name LIKE ? OR headquarters LIKE ? OR slug LIKE ?`;
+
+        const [companies] = await pool.query(sqlQuery, [searchPattern, searchPattern, searchPattern,]);
+
+        res.status(200).json({
+            status: "success",
+            results: companies.length,
+            companies: companies,
+        });
+
+    } catch (error) {
+        console.error("Error al buscar compañías: ", error);
+        res.status(500).json({
+            status: "error",
+            message: "Error interno del servidor al realizar la búsqueda",
+        });
+    }
+};
+
+
 
 module.exports = {
     getCompanies,
@@ -257,4 +318,5 @@ module.exports = {
     getCompaniesBySlug,
     updateCompanies,
     deleteCompanies,
+    searchCompanies,
 }
