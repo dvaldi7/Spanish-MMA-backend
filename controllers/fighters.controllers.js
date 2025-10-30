@@ -5,22 +5,40 @@ const slugify = require("slugify");
 const getFighters = async (req, res) => {
 
     const page = parseInt(req.query.page) || 1; 
-    const limit = parseInt(req.query.limit) || 20;
+    const limit = parseInt(req.query.limit) || 10;
+    const searchTerm = req.query.search || '';
 
     const offset = (page - 1) * limit;
 
     try {
-        const sqlQuery = `SELECT f.*, c.name AS company_name, c.slug AS company_slug 
+        let sqlQuery = `SELECT f.*, c.name AS company_name, c.slug AS company_slug 
                             FROM fighters f
-                            LEFT JOIN companies c ON f.company_id = c.company_id
-                            ORDER BY f.fighter_id ASC
-                            LIMIT ?
-                            OFFSET ? ;`;
+                            LEFT JOIN companies c ON f.company_id = c.company_id`;
 
-        const countQuery = 'SELECT COUNT(fighter_id) AS total_fighters FROM fighters;';
+        let countQuery = 'SELECT COUNT(fighter_id) AS total_fighters FROM fighters;';
+
+        let queryParams = [];
+        let countParams = [];
+
+        if (searchTerm){
+            const searchPattern = `%${searchTerm}%`;
+
+            const whereClause = `WHERE first_name LIKE ? OR last_name LIKE ? OR nickname LIKE ? `;
+            countQuery = `SELECT COUNT(fighter_id) AS total_fighters FROM fighters ${whereClause}`;
+           
+            sqlQuery += ` WHERE f.first_name LIKE ? OR f.last_name LIKE ? OR f.nickname LIKE ? `;
+ 
+            queryParams.push(searchPattern, searchPattern, searchPattern);
+            countParams.push(searchPattern, searchPattern, searchPattern)
+        }
+
+        sqlQuery += ` ORDER BY f.fighter_id ASC LIMIT ? OFFSET ? ;`;
+
+        queryParams.push(limit, offset);
+
         
-        const [fighters] = await pool.query(sqlQuery, [limit, offset]);
-        const [totalResults] = await pool.query(countQuery);
+        const [ fighters ] = await pool.query(sqlQuery, queryParams);
+        const [ totalResults ] = await pool.query(countQuery, countParams);
         
         const totalFighters = totalResults[0].total_fighters;
         const totalPages = Math.ceil(totalFighters / limit);
@@ -290,8 +308,8 @@ const deleteFighter = async (req, res) => {
 
 }
 
-//Buscar peleadores
-const searchFighters = async (req, res) => {
+//Buscar peleadores (pasado a getFighters para añadirle buscador)
+/*const searchFighters = async (req, res) => {
   
     const searchTerm = req.query.q;
 
@@ -332,6 +350,7 @@ const searchFighters = async (req, res) => {
         });
     }
 }
+*/
 
 //Añadir un peleador a una compañía
 const assignFighterToCompany = async (req, res) => {
@@ -374,6 +393,6 @@ module.exports = {
     updateFighter,
     deleteFighter,
     getFightersBySlug,
-    searchFighters,
+    /*searchFighters,*/
     assignFighterToCompany,
 }
