@@ -1,22 +1,42 @@
 const pool = require("../config/db");
-const slugify = require('slugify'); 
+const slugify = require('slugify');
 
 // Ver compañías
 const getCompanies = async (req, res) => {
 
-    const page = parseInt(req.query.page) || 1; 
-    const limit = parseInt(req.query.limit) || 20; 
-    
-    const offset = (page - 1) * limit; 
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const searchTerm = req.query.search || '';
+
+    const offset = (page - 1) * limit;
+
+    // Inicializamos las consultas y los parámetros
+    let sqlQuery = `SELECT * FROM companies`;
+    let countQuery = `SELECT COUNT(company_id) AS total_companies FROM companies`;
+
+    let queryParams = [];
+    let countParams = [];
+
+    if (searchTerm) {
+        const searchPattern = `%${searchTerm}%`;
+
+        const whereClause = ` WHERE name LIKE ? `;
+        countQuery += whereClause;
+        sqlQuery += whereClause;
+
+        queryParams.push(searchPattern);
+        countParams.push(searchPattern);
+    }
+
+    sqlQuery += ` ORDER BY company_id ASC LIMIT ? OFFSET ? ;`;
+
+    queryParams.push(limit, offset);
 
     try {
-        const sqlQuery = `SELECT * FROM companies ORDER BY company_id ASC LIMIT ? OFFSET ?;`;
-        
-        const countQuery = 'SELECT COUNT(company_id) AS total_companies FROM companies;';
-        
-        const [ companies ] = await pool.query(sqlQuery, [limit, offset]);
-        const [ totalResults ] = await pool.query(countQuery);
-        
+
+        const [companies] = await pool.query(sqlQuery, queryParams);
+        const [totalResults] = await pool.query(countQuery, countParams);
+
         const totalCompanies = totalResults[0].total_companies;
         const totalPages = Math.ceil(totalCompanies / limit);
 
@@ -32,7 +52,7 @@ const getCompanies = async (req, res) => {
             companies: companies,
         });
 
-    } catch (error){
+    } catch (error) {
         console.error('Error al obtener compañías:', error)
         res.status(500).json({
             status: "error",
@@ -62,7 +82,7 @@ const createCompanies = async (req, res) => {
             country || null,
             website || null,
             companySlug,
-            ];
+        ];
 
         const [result] = await pool.query(sqlQuery, values);
         const newCompanyId = result.insertId;
@@ -99,11 +119,11 @@ const getCompaniesById = async (req, res) => {
 
     const { id } = req.params;
 
-    try{
+    try {
         const sqlQuery = 'SELECT * FROM companies WHERE company_id = ?';
-        const [ companies ] = await pool.query(sqlQuery, [id]);
+        const [companies] = await pool.query(sqlQuery, [id]);
 
-        if (companies.length === 0){
+        if (companies.length === 0) {
             return res.status(404).json({
                 status: "error",
                 message: "Error al obtener la compañía con ese ID",
@@ -115,7 +135,7 @@ const getCompaniesById = async (req, res) => {
             company: companies[0],
         })
 
-    }catch(error){
+    } catch (error) {
         console.error("Error al obtener la compañía por su ID: ", error);
 
         res.status(500).json({
@@ -130,12 +150,12 @@ const getCompaniesBySlug = async (req, res) => {
 
     const { slug } = req.params;
 
-    try{
+    try {
 
         const sqlQuery = 'SELECT * FROM companies WHERE slug = ?';
-        const [ companies ] = await pool.query(sqlQuery, [slug]);
+        const [companies] = await pool.query(sqlQuery, [slug]);
 
-         if (companies.length === 0) {
+        if (companies.length === 0) {
             return res.status(404).json({
                 status: "error",
                 message: "Compañía no encontrada por Slug",
@@ -147,7 +167,7 @@ const getCompaniesBySlug = async (req, res) => {
             company: companies[0],
         });
 
-    }catch(error){
+    } catch (error) {
         console.error("Error al obtener la compañía por su SLUG: ", error);
 
         res.status(500).json({
@@ -159,31 +179,31 @@ const getCompaniesBySlug = async (req, res) => {
 
 //Actualizar compañías
 const updateCompanies = async (req, res) => {
-    
+
     const { id } = req.params;
     const fieldsToUpdate = req.body;
 
-    if(!req.body || Object.keys(fieldsToUpdate).length === 0){
+    if (!req.body || Object.keys(fieldsToUpdate).length === 0) {
         return res.status(400).json({
             status: "error",
             message: "Debe enviar datos para actualizar la compañía",
         })
     }
 
-    try{
+    try {
         const [currentCompanyRows] = await pool.query('SELECT name FROM companies WHERE company_id = ?', [id]);
-        
+
         if (currentCompanyRows.length === 0) {
             return res.status(404).json({
                 status: "error",
                 message: "Compañía no encontrada para actualizar",
             });
         }
-        
+
         const currentCompany = currentCompanyRows[0];
 
         if (fieldsToUpdate.name) {
-            const finalName = fieldsToUpdate.name || currentCompany.name; 
+            const finalName = fieldsToUpdate.name || currentCompany.name;
 
             fieldsToUpdate.slug = slugify(finalName, { lower: true, strict: true });
         }
@@ -193,7 +213,7 @@ const updateCompanies = async (req, res) => {
 
         for (const key in fieldsToUpdate) {
             const value = fieldsToUpdate[key];
-            
+
             if (value !== "" && value !== null) {
                 validKeys.push(key);
                 validValues.push(value);
@@ -201,15 +221,15 @@ const updateCompanies = async (req, res) => {
         }
 
         if (validKeys.length === 0) {
-            return res.status(400).json({ 
-                 status: "error",
-                 message: 'La solicitud no contiene datos válidos para actualizar' 
+            return res.status(400).json({
+                status: "error",
+                message: 'La solicitud no contiene datos válidos para actualizar'
             });
         }
 
         const change = validKeys.map(key => `${key} = ?`).join(', ');
         const finalValues = [...validValues, id];
-        
+
         const sqlUpdate = `UPDATE companies SET ${change} WHERE company_id = ?`;
 
         const [result] = await pool.query(sqlUpdate, finalValues);
@@ -217,7 +237,7 @@ const updateCompanies = async (req, res) => {
         if (result.affectedRows === 0 && result.changedRows === 0) {
             return res.status(200).json({
                 status: "success",
-                message: "Compañía encontrada, pero no se detectaron cambios" 
+                message: "Compañía encontrada, pero no se detectaron cambios"
             });
         }
 
@@ -227,15 +247,15 @@ const updateCompanies = async (req, res) => {
             data_updated: fieldsToUpdate,
         });
 
-    }catch(error){
+    } catch (error) {
         console.error("Error al actualizar la compañia: ", error);
 
-          // Error si slug está duplicado
+        // Error si slug está duplicado
         if (error.code === 'ER_DUP_ENTRY') {
-             return res.status(409).json({
-                 status: "error",
-                 message: "Ya existe una compañía con un slug similar. Intente modificar el nombre." 
-             });
+            return res.status(409).json({
+                status: "error",
+                message: "Ya existe una compañía con un slug similar. Intente modificar el nombre."
+            });
         }
 
         res.status(500).json({
@@ -249,12 +269,12 @@ const updateCompanies = async (req, res) => {
 const deleteCompanies = async (req, res) => {
     const { id } = req.params;
 
-    try{
+    try {
 
         const sqlQuery = 'DELETE FROM companies WHERE company_id = ?';
-        const [ result ] = await pool.query(sqlQuery, [id]);
+        const [result] = await pool.query(sqlQuery, [id]);
 
-        if (result.affectedRows === 0){
+        if (result.affectedRows === 0) {
             return res.status(400).json({
                 status: "error",
                 message: "Compañía no encontrada para eliminar",
@@ -266,7 +286,7 @@ const deleteCompanies = async (req, res) => {
             message: `Compañía con id ${id} eliminada con éxito`,
         })
 
-    }catch(error){
+    } catch (error) {
         console.error("Error al intentar borrar la compañía: ", error);
         res.status(500).json({
             status: "error",
