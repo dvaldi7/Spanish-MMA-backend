@@ -14,6 +14,7 @@ const PORT = process.env.PORT || 3001;
 // Middleware para JSON
 app.use(express.json());
 app.use(cors());
+app.use(express.static(path.join(__dirname, 'public')));
 app.use('/api/auth', authRoutes);
 
 // Ruta de prueba
