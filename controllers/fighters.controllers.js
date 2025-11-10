@@ -206,10 +206,6 @@ const getFightersBySlug = async (req, res) => {
 }
 
 //Actualizar peleador
-// controllers/fighters.controllers.js
-
-// ... (asegúrate de que const path = require('path'); esté aquí)
-
 const updateFighter = async (req, res) => {
     const { id } = req.params;
     let fieldsToUpdate = req.body;

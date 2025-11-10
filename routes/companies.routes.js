@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router(); 
+const upload = require('../middleware/multerConfig');
 
 //Importar controllador
 const companiesController = require("../controllers/companies.controllers");
@@ -12,8 +13,8 @@ router.get('/slug/:slug', companiesController.getCompaniesBySlug);
 router.get('/search', companiesController.searchCompanies);
 
 //RUTAS PRIVADAS
-router.post('/', auth(['admin']), companiesController.createCompanies);
-router.put('/id/:id', auth(['admin']), companiesController.updateCompanies);
+router.post('/', auth(['admin']), upload.single('logo'), companiesController.createCompanies);
+router.put('/id/:id', auth(['admin']), upload.single('logo'), companiesController.updateCompanies);
 router.delete('/id/:id', auth(['admin']), companiesController.deleteCompanies);
 
 // Exportamos el router para usarlo en index.js
