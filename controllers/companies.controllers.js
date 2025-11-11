@@ -10,7 +10,6 @@ const getCompanies = async (req, res) => {
 
     const offset = (page - 1) * limit;
 
-    // Inicializamos las consultas y los parámetros
     let sqlQuery = `SELECT * FROM companies`;
     let countQuery = `SELECT COUNT(company_id) AS total_companies FROM companies`;
 
@@ -63,53 +62,52 @@ const getCompanies = async (req, res) => {
 
 //Crear nueva compañía
 const createCompanies = async (req, res) => {
-    const { name, headquarters, country, website } = req.body;
 
-    if (!name) {
-        return res.status(400).json({
-            status: "error",
-            message: "Falta un campo obligatorio (nombre)",
-        });
+    const {
+        name,
+    } = req.body;
+
+    const nameForSlug = name;
+    const slug = slugify(nameForSlug, { lower: true, strict: true });
+
+    let logo_url = null;
+    if (req.file) {
+        logo_url = `images/companies/${req.file.filename}`;
     }
 
+    const headquarters = req.body.headquarters || '';
+    const country = req.body.country || '';
+    const website = req.body.website || '';
+
     try {
-        const companySlug = slugify(name, { lower: true, strict: true });
 
-        const sqlQuery = ` INSERT INTO companies (name, headquarters, country, website, slug) VALUES (?, ?, ?, ?, ?)`;
-        const values = [
+        const sql = `
+            INSERT INTO companies (
+                name, logo_url, headquarters, country, slug, website
+            ) 
+            VALUES (?, ?, ?, ?, ?, ?)
+        `;
+
+        const [result] = await pool.query(sql, [
             name,
-            headquarters || null,
-            country || null,
-            website || null,
-            companySlug,
-        ];
-
-        const [result] = await pool.query(sqlQuery, values);
-        const newCompanyId = result.insertId;
+            logo_url,
+            headquarters,
+            country,
+            slug,
+            website,
+        ]);
 
         res.status(201).json({
-            status: "success",
             message: "Compañía creada con éxito",
-            company_id: newCompanyId,
-            company_slug: companySlug,
-            data: req.body
+            company_id: result.insertId,
+            logo_url: logo_url,
         });
 
-
     } catch (error) {
-        console.error("Error al crear la compañía: ", error);
-
-        // Si el Slug ya existe
-        if (error.code === 'ER_DUP_ENTRY') {
-            return res.status(409).json({
-                status: "error",
-                message: "Ya existe una compañía con ese nombre (slug duplicado)",
-            });
-        }
-
-        return res.status(500).json({
-            error: "error",
-            message: "Error al crear la compañía",
+        console.error("Error al crear compañía: ", error);
+        res.status(500).json({
+            message: "Error interno del servidor al crear la compañía",
+            error: error.message
         });
     }
 }
@@ -181,7 +179,13 @@ const getCompaniesBySlug = async (req, res) => {
 const updateCompanies = async (req, res) => {
 
     const { id } = req.params;
-    const fieldsToUpdate = req.body;
+    const fieldsToUpdate = {};
+
+    if (req.file) {
+        const newLogoUrl = `images/companies/${req.file.filename}`;
+
+        fieldsToUpdate.logo_url = newLogoUrl;
+    }
 
     if (!req.body || Object.keys(fieldsToUpdate).length === 0) {
         return res.status(400).json({
@@ -244,7 +248,9 @@ const updateCompanies = async (req, res) => {
         res.status(200).json({
             status: "success",
             message: "Compañía actualizada con éxito",
+            company_id: id,
             data_updated: fieldsToUpdate,
+            new_logo_url: req.file ? fieldsToUpdate.logo_url : undefined
         });
 
     } catch (error) {
