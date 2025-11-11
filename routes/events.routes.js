@@ -1,5 +1,6 @@
 const express = require('express');
-const router = express.Router(); 
+const router = express.Router();
+const upload = require('../middleware/multerConfig'); 
 
 //Importar controlador
 const eventsController = require("../controllers/events.controllers");
@@ -14,11 +15,11 @@ router.get('/search', eventsController.searchEvents);
 router.get('/id/:eventId/fighters', eventsController.getEventRoster);
 
 //RUTAS PRIVADAS
-router.post('/', auth(['admin']), eventsController.createEvents);
-router.put('/id/:id', auth(['admin']), eventsController.updateEvents);        
+router.post('/', auth(['admin']), upload.single('poster'), eventsController.createEvents);
+router.put('/id/:id', auth(['admin']), upload.single('poster'), eventsController.updateEvents);        
 router.delete('/id/:id', auth(['admin']), eventsController.deleteEvents); 
 // Ruta para añadir un luchador a un evento
-router.post('/id/:eventId/fighters', auth(['admin']), eventsController.addFighterToEvent);
+router.post('/id/:eventId/fighters', auth(['admin']), upload.single('poster'), eventsController.addFighterToEvent);
 // Ruta para eliminar un luchador de un evento
 router.delete('/id/:eventId/fighters/:fighterId', auth(['admin']), eventsController.deleteFighterFromEvent);
 

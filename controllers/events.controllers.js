@@ -1,5 +1,7 @@
 const pool = require("../config/db");
 const slugify = require("slugify");
+const path = require('path');
+const fs = require('fs/promises');
 
 // Ver eventos
 const getEvents = async (req, res) => {
@@ -59,56 +61,68 @@ const getEvents = async (req, res) => {
             message: 'Error interno del servidor al obtener eventos',
         });
     }
-};
+}
 
-// Crear nuevos eventos
+// Crear eventos
 const createEvents = async (req, res) => {
 
-    const { name, location, date } = req.body;
-
-    if (!name || !date) {
-        return res.status(400).json({
-            status: "error",
-            message: "Faltan algunos campos obligatorios (nombre o fecha)",
-        });
-    }
-
     try {
+        const { name, location, date, is_completed } = req.body;
 
-        const eventSlug = slugify(name, { lower: true, strict: true });
-        const sqlQuery = `
-            INSERT INTO events (name, location, date, slug)
-            VALUES (?, ?, ?, ?)
-        `;
-        const values = [name, location, date, eventSlug];
+        if (!name || !name.trim()) {
+            return res.status(400).json({
+                status: "error",
+                message: "El campo nombre es obligatorio",
+            });
+        }
 
-        const [result] = await pool.query(sqlQuery, values);
+        let poster_url = null;
+        if (req.file) {
+            poster_url = `uploads/${req.file.filename}`;
+        }
+
+        const slug = slugify(name, { lower: true, strict: true });
+
+        const dateValue = date && date.trim() !== '' ? date : null;
+        const locationValue = location && location.trim() !== '' ? location : null;
+
+        const [result] = await pool.query(
+            `INSERT INTO events (name, slug, location, date, is_completed, poster_url)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+            [
+                name,
+                slug,
+                locationValue,
+                dateValue,
+                is_completed === "true" ? 1 : 0,
+                poster_url,
+            ]
+        );
 
         res.status(201).json({
             status: "success",
-            message: 'Evento creado con éxito',
+            message: "Evento creado con éxito",
             event_id: result.insertId,
-            event_slug: eventSlug,
-            data: req.body
         });
-
     } catch (error) {
-        console.error("Error al crear el evento nuevo: ", error);
+        console.error("Error al crear el evento:", error);
 
-        //Manejo clave duplicada si existe el slug
-        if (error.code === 'ER_DUP_ENTRY') {
+        // Manejo de error si slug duplicado
+        if (error.code === "ER_DUP_ENTRY") {
             return res.status(409).json({
                 status: "error",
-                message: "Ya existe un evento con un nombre similar (slug duplicado)"
+                message:
+                    "Ya existe un evento con un nombre similar. Prueba con otro nombre",
             });
         }
 
         res.status(500).json({
             status: "error",
-            message: "Error al crear el nuevo evento",
-        })
+            message: "Error al intentar crear el evento",
+        });
     }
 }
+
 
 //Obtener evento por ID
 const getEventsById = async (req, res) => {
@@ -175,23 +189,28 @@ const getEventsBySlug = async (req, res) => {
 
 //Actualizar evento
 const updateEvents = async (req, res) => {
-
     const { id } = req.params;
     const fieldsToUpdate = req.body;
 
-    if (!req.body || Object.keys(fieldsToUpdate).length === 0) {
+    if ((!req.body || Object.keys(fieldsToUpdate).length === 0) && !req.file) {
         return res.status(400).json({
             status: "error",
             message: "Debes enviar datos para actualizar!",
-        })
+        });
     }
 
     try {
         const [currentEventRows] = await pool.query(
-            'SELECT name FROM events WHERE event_id = ?', [id]
+            'SELECT * FROM events WHERE event_id = ?',
+            [id]
         );
 
         if (currentEventRows.length === 0) {
+
+            if (req.file) {
+                await fs.unlink(req.file.path).catch(err => console.error("Error al borrar archivo", err));
+            }
+
             return res.status(404).json({
                 status: "error",
                 message: "Evento no encontrado para actualizar",
@@ -200,28 +219,44 @@ const updateEvents = async (req, res) => {
 
         const currentEvent = currentEventRows[0];
 
+        // Si se envía un nuevo nombre, generar nuevo slug
         if (fieldsToUpdate.name) {
             const finalName = fieldsToUpdate.name || currentEvent.name;
-
             fieldsToUpdate.slug = slugify(finalName, { lower: true, strict: true });
         }
 
+        // Si se sube un nuevo póster, reemplazar el anterior
+        if (req.file) {
+            const newPosterUrl = path.join('images/events', req.file.filename).replace(/\\/g, '/');
+
+            // Borrar imagen anterior si existía
+            if (currentEvent.poster_url) {
+                const oldPath = path.join(__dirname, '../public', currentEvent.poster_url);
+                await fs.unlink(oldPath).catch(err => console.warn("No se pudo borrar la imagen anterior:", err));
+            }
+
+            fieldsToUpdate.poster_url = newPosterUrl;
+        }
+
+        // Filtrar solo campos válidos y no vacíos
         const validKeys = [];
         const validValues = [];
 
         for (const key in fieldsToUpdate) {
             const value = fieldsToUpdate[key];
-
-            if (value !== "" && value !== null) {
+            if (value !== "" && value !== null && typeof value !== 'undefined') {
                 validKeys.push(key);
                 validValues.push(value);
             }
         }
 
         if (validKeys.length === 0) {
+            if (req.file) {
+                await fs.unlink(req.file.path).catch(err => console.error("Error al borrar archivo no utilizado:", err));
+            }
             return res.status(400).json({
                 status: "error",
-                message: 'La solicitud no contiene datos válidos para actualizar'
+                message: "La solicitud no contiene datos válidos para actualizar",
             });
         }
 
@@ -235,7 +270,7 @@ const updateEvents = async (req, res) => {
         if (result.affectedRows === 0) {
             return res.status(200).json({
                 status: "success",
-                message: "Evento encontrado, pero no se detectaron cambios"
+                message: "Evento encontrado, pero no se detectaron cambios",
             });
         }
 
@@ -245,23 +280,25 @@ const updateEvents = async (req, res) => {
             data_updated: fieldsToUpdate,
         });
 
-
-
     } catch (error) {
         console.error("No se ha podido actualizar el evento: ", error);
 
-        // Manejo de error si slug duplicado
+        // Si hay error, eliminar el archivo recién subido
+        if (req.file) {
+            await fs.unlink(req.file.path).catch(err => console.error("Error al borrar archivo tras fallo:", err));
+        }
+
         if (error.code === 'ER_DUP_ENTRY') {
             return res.status(409).json({
                 status: "error",
-                message: "Ya existe un evento con un slug similar. Intente modificar el nombre."
+                message: "Ya existe un evento con un slug similar. Intente modificar el nombre.",
             });
         }
 
         res.status(500).json({
             status: "error",
             message: "Error al intentar actualizar el evento",
-        })
+        });
     }
 }
 
@@ -445,7 +482,7 @@ const searchEvents = async (req, res) => {
             message: "Error interno del servidor al realizar la búsqueda",
         });
     }
-};
+}
 
 
 module.exports = {
