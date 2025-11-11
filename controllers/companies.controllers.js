@@ -180,14 +180,25 @@ const updateCompanies = async (req, res) => {
 
     const { id } = req.params;
     const fieldsToUpdate = {};
+    const allowedFields = ['name', 'headquarters', 'country', 'website'];
+
+    for (const key of allowedFields) {
+
+        if (req.body[key] !== undefined) {
+            fieldsToUpdate[key] = req.body[key];
+        }
+    }
 
     if (req.file) {
         const newLogoUrl = `images/companies/${req.file.filename}`;
 
         fieldsToUpdate.logo_url = newLogoUrl;
     }
+    if (!req.file && req.body.logo_url !== undefined) {
+        fieldsToUpdate.logo_url = req.body.logo_url;
+    }
 
-    if (!req.body || Object.keys(fieldsToUpdate).length === 0) {
+    if (Object.keys(fieldsToUpdate).length === 0) {
         return res.status(400).json({
             status: "error",
             message: "Debe enviar datos para actualizar la compañía",
