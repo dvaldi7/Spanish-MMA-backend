@@ -185,7 +185,14 @@ const getFightersBySlug = async (req, res) => {
     const { slug } = req.params;
 
     try {
-        const [fighters] = await pool.query('SELECT * FROM fighters WHERE slug = ?', [slug]);
+        const sqlQuery = `
+      SELECT f.*, c.name AS company_name, c.slug AS company_slug FROM fighters f
+      LEFT JOIN companies c ON f.company_id = c.company_id
+      WHERE f.slug = ?
+      LIMIT 1;
+    `;
+
+        const [fighters] = await pool.query(sqlQuery, [slug]);
 
         if (fighters.length === 0) {
             return res.status(404).json({
@@ -209,7 +216,7 @@ const getFightersBySlug = async (req, res) => {
 const updateFighter = async (req, res) => {
     const { id } = req.params;
     let fieldsToUpdate = req.body;
-    
+
     if (req.file) {
         fieldsToUpdate.photo_url = path.join('images/fighters', req.file.filename).replace(/\\/g, '/');
     }
@@ -234,7 +241,7 @@ const updateFighter = async (req, res) => {
     if (companyIndex !== -1 && validValues[companyIndex] === '') {
         validValues[companyIndex] = null;
     }
-    
+
     const setClauses = validKeys.map(key => `${key} = ?`).join(', ');
     const query = `UPDATE fighters SET ${setClauses} WHERE fighter_id = ?`;
     const finalValues = [...validValues, id];
@@ -242,19 +249,19 @@ const updateFighter = async (req, res) => {
     try {
         await pool.query(query, finalValues);
 
-        res.status(200).json({ 
-            message: 'Peleador actualizado con éxito', 
+        res.status(200).json({
+            message: 'Peleador actualizado con éxito',
             fighter_id: id,
             new_photo_url: req.file ? fieldsToUpdate.photo_url : undefined
         });
 
     } catch (error) {
         console.error("Error al actualizar el peleador:", error);
-        
-        res.status(500).json({ 
-            message: 'Error al actualizar el peleador', 
+
+        res.status(500).json({
+            message: 'Error al actualizar el peleador',
             error: error.message,
-            sql: error.sql 
+            sql: error.sql
         });
     }
 }
