@@ -11,6 +11,7 @@ router.get('/', companiesController.getCompanies);
 router.get('/id/:id', companiesController.getCompaniesById);
 router.get('/slug/:slug', companiesController.getCompaniesBySlug);
 router.get('/search', companiesController.searchCompanies);
+router.get('/slug/:slug/fighters', companiesController.getCompanyFighters);
 
 //RUTAS PRIVADAS
 router.post('/', auth(['admin']), upload.single('logo'), companiesController.createCompanies);

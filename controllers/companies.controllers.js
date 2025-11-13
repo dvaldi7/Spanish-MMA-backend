@@ -344,7 +344,48 @@ const searchCompanies = async (req, res) => {
             message: "Error interno del servidor al realizar la búsqueda",
         });
     }
-};
+}
+
+//Obtener los peleadores de cada compañía
+const getCompanyFighters = async (req, res) => {
+    const { slug } = req.params;
+
+    try {
+        //Obtener compañía por slug
+        const [companies] = await pool.query('SELECT * FROM companies WHERE slug = ?', [slug]);
+
+        if (companies.length === 0) {
+            return res.status(404).json({
+                status: "error",
+                message: "Compañía no encontrada por Slug",
+            });
+        }
+
+        const company = companies[0];
+
+        //Obtener peleadores de esa compañía
+        const [fighters] = await pool.query(
+            `SELECT fighter_id, first_name, last_name, nickname, slug, photo_url 
+             FROM fighters 
+             WHERE company_id = ?`,
+            [company.company_id]
+        );
+
+        res.status(200).json({
+            status: "success",
+            company: company,
+            fighters: fighters
+        });
+
+    } catch (error) {
+        console.error("Error al obtener los peleadores de la compañía: ", error);
+        res.status(500).json({
+            status: "error",
+            message: "Error interno del servidor al obtener los peleadores",
+        });
+    }
+}
+
 
 
 
@@ -356,4 +397,5 @@ module.exports = {
     updateCompanies,
     deleteCompanies,
     searchCompanies,
+    getCompanyFighters,
 }
