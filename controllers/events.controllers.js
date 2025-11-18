@@ -1,16 +1,16 @@
 const pool = require("../config/db");
 const slugify = require("slugify");
+const path = require('path');
+const fs = require('fs/promises');
 
 // Ver eventos
 const getEvents = async (req, res) => {
-
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
     const searchTerm = req.query.search || '';
 
     const offset = (page - 1) * limit;
 
-    // Inicializamos las consultas y los parámetros
     let sqlQuery = `SELECT * FROM events`;
     let countQuery = `SELECT COUNT(event_id) AS total_events FROM events`;
 
@@ -19,21 +19,17 @@ const getEvents = async (req, res) => {
 
     if (searchTerm) {
         const searchPattern = `%${searchTerm}%`;
-
         const whereClause = ` WHERE name LIKE ? `;
         countQuery += whereClause;
         sqlQuery += whereClause;
-
         queryParams.push(searchPattern);
         countParams.push(searchPattern);
     }
 
     sqlQuery += ` ORDER BY date ASC LIMIT ? OFFSET ? ;`;
-
     queryParams.push(limit, offset);
 
     try {
-
         const [events] = await pool.query(sqlQuery, queryParams);
         const [totalResults] = await pool.query(countQuery, countParams);
 
@@ -51,7 +47,6 @@ const getEvents = async (req, res) => {
             results: events.length,
             events: events,
         });
-
     } catch (error) {
         console.error('Error al obtener eventos:', error);
         res.status(500).json({
@@ -59,64 +54,119 @@ const getEvents = async (req, res) => {
             message: 'Error interno del servidor al obtener eventos',
         });
     }
-};
+}
 
-// Crear nuevos eventos
+// Crear eventos con luchadores
 const createEvents = async (req, res) => {
-
-    const { name, location, date } = req.body;
-
-    if (!name || !date) {
-        return res.status(400).json({
-            status: "error",
-            message: "Faltan algunos campos obligatorios (nombre o fecha)",
-        });
-    }
-
+    const connection = await pool.getConnection();
+    
     try {
+        await connection.beginTransaction();
 
-        const eventSlug = slugify(name, { lower: true, strict: true });
-        const sqlQuery = `
-            INSERT INTO events (name, location, date, slug)
-            VALUES (?, ?, ?, ?)
-        `;
-        const values = [name, location, date, eventSlug];
+        const { name, location, date, is_completed, fighter_ids } = req.body;
 
-        const [result] = await pool.query(sqlQuery, values);
+        if (!name || !name.trim()) {
+            await connection.rollback();
+            return res.status(400).json({
+                status: "error",
+                message: "El campo nombre es obligatorio",
+            });
+        }
+
+        let poster_url = null;
+        if (req.file) {
+            poster_url = path.join('images/events', req.file.filename).replace(/\\/g, '/');
+        }
+
+        const slug = slugify(name, { lower: true, strict: true });
+        const dateValue = date && date.trim() !== '' ? date : null;
+        const locationValue = location && location.trim() !== '' ? location : null;
+        const isCompletedValue = (is_completed === 'true' || is_completed === true) ? 1 : 0;
+
+        const [existingSlug] = await connection.query(
+            `SELECT event_id FROM events WHERE slug = ?`,
+            [slug]
+        );
+
+        if (existingSlug.length > 0) {
+            await connection.rollback();
+            return res.status(409).json({
+                status: "error",
+                message: "Ya existe un evento con un nombre similar. Prueba con otro nombre",
+            });
+        }
+
+        // Insertar el evento
+        const [result] = await connection.query(
+            `INSERT INTO events (name, slug, location, date, is_completed, poster_url)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [name, slug, locationValue, dateValue, isCompletedValue, poster_url]
+        );
+
+        const eventId = result.insertId;
+
+        // Procesar fighter_ids
+        let fighterIdsArray = [];
+        if (fighter_ids) {
+            // Si viene como string JSON, parsearlo
+            if (typeof fighter_ids === 'string') {
+                try {
+                    fighterIdsArray = JSON.parse(fighter_ids);
+                } catch (e) {
+                    console.log('fighter_ids no es JSON válido, intentando como array');
+                    fighterIdsArray = Array.isArray(fighter_ids) ? fighter_ids : [fighter_ids];
+                }
+            } else if (Array.isArray(fighter_ids)) {
+                fighterIdsArray = fighter_ids;
+            } else {
+                fighterIdsArray = [fighter_ids];
+            }
+        }
+
+        console.log('Fighter IDs a insertar:', fighterIdsArray);
+
+        // Insertar relaciones en event_fighters
+        if (fighterIdsArray.length > 0) {
+            const values = fighterIdsArray.map(fighterId => [eventId, parseInt(fighterId)]);
+            await connection.query(
+                'INSERT INTO event_fighters (event_id, fighter_id) VALUES ?',
+                [values]
+            );
+        }
+
+        await connection.commit();
 
         res.status(201).json({
             status: "success",
-            message: 'Evento creado con éxito',
-            event_id: result.insertId,
-            event_slug: eventSlug,
-            data: req.body
+            message: "Evento creado con éxito",
+            event_id: eventId,
+            fighters_added: fighterIdsArray.length
         });
-
     } catch (error) {
-        console.error("Error al crear el evento nuevo: ", error);
+        await connection.rollback();
+        console.error("Error al crear el evento:", error);
 
-        //Manejo clave duplicada si existe el slug
-        if (error.code === 'ER_DUP_ENTRY') {
+        if (error.code === "ER_DUP_ENTRY") {
             return res.status(409).json({
                 status: "error",
-                message: "Ya existe un evento con un nombre similar (slug duplicado)"
+                message: "Ya existe un evento con un nombre similar. Prueba con otro nombre",
             });
         }
 
         res.status(500).json({
             status: "error",
-            message: "Error al crear el nuevo evento",
-        })
+            message: "Error al intentar crear el evento",
+        });
+    } finally {
+        connection.release();
     }
 }
 
-//Obtener evento por ID
+// Obtener evento por ID
 const getEventsById = async (req, res) => {
-
     const { id } = req.params;
 
     try {
-
         const sqlQuery = 'SELECT * FROM events WHERE event_id = ?';
         const [events] = await pool.query(sqlQuery, [id]);
 
@@ -131,7 +181,6 @@ const getEventsById = async (req, res) => {
             status: "success",
             event: events[0],
         })
-
     } catch (error) {
         console.error("Error al obtener el evento: ", error);
         res.status(500).json({
@@ -139,16 +188,13 @@ const getEventsById = async (req, res) => {
             message: "Error al obtener el evento",
         })
     }
-
 }
 
-//Obterner evento por SLUG
+// Obtener evento por SLUG
 const getEventsBySlug = async (req, res) => {
-
     const { slug } = req.params;
 
     try {
-
         const sqlQuery = 'SELECT * FROM events WHERE slug = ?';
         const [events] = await pool.query(sqlQuery, [slug]);
 
@@ -163,7 +209,6 @@ const getEventsBySlug = async (req, res) => {
             status: "success",
             event: events[0],
         })
-
     } catch (error) {
         console.error("No se ha encontrado ningún evento con este nombre de Slug", error);
         res.status(500).json({
@@ -173,105 +218,137 @@ const getEventsBySlug = async (req, res) => {
     }
 }
 
-//Actualizar evento
+// Actualizar evento CON luchadores
 const updateEvents = async (req, res) => {
-
-    const { id } = req.params;
-    const fieldsToUpdate = req.body;
-
-    if (!req.body || Object.keys(fieldsToUpdate).length === 0) {
-        return res.status(400).json({
-            status: "error",
-            message: "Debes enviar datos para actualizar!",
-        })
-    }
-
+    const connection = await pool.getConnection();
+    
     try {
-        const [currentEventRows] = await pool.query(
-            'SELECT name FROM events WHERE event_id = ?', [id]
-        );
+        await connection.beginTransaction();
 
-        if (currentEventRows.length === 0) {
-            return res.status(404).json({
+        const { name, location, date, is_completed, fighter_ids } = req.body;
+        const { id } = req.params;
+
+        if (!id) {
+            await connection.rollback();
+            return res.status(400).json({
                 status: "error",
-                message: "Evento no encontrado para actualizar",
+                message: "Falta el ID del evento a actualizar",
+            });
+        }
+        
+        if (!name || !name.trim()) {
+            await connection.rollback();
+            return res.status(400).json({
+                status: "error",
+                message: "El campo nombre es obligatorio",
             });
         }
 
-        const currentEvent = currentEventRows[0];
+        const slug = slugify(name, { lower: true, strict: true });
+        const dateValue = date && date.trim() !== '' ? date : null;
+        const locationValue = location && location.trim() !== '' ? location : null;
+        const isCompletedValue = (is_completed === 'true' || is_completed === true) ? 1 : 0;
 
-        if (fieldsToUpdate.name) {
-            const finalName = fieldsToUpdate.name || currentEvent.name;
-
-            fieldsToUpdate.slug = slugify(finalName, { lower: true, strict: true });
+        let poster_url = null;
+        if (req.file) {
+            poster_url = path.join('images/events', req.file.filename).replace(/\\/g, '/');
         }
 
-        const validKeys = [];
-        const validValues = [];
+        const [existingSlug] = await connection.query(
+            `SELECT event_id FROM events WHERE slug = ? AND event_id != ?`,
+            [slug, id]
+        );
 
-        for (const key in fieldsToUpdate) {
-            const value = fieldsToUpdate[key];
+        if (existingSlug.length > 0) {
+            await connection.rollback();
+            return res.status(409).json({
+                status: "error",
+                message: "Ya existe otro evento con un nombre similar. Prueba con otro nombre",
+            });
+        }
 
-            if (value !== "" && value !== null) {
-                validKeys.push(key);
-                validValues.push(value);
+        // Actualizar el evento
+        let updateQuery = `
+            UPDATE events 
+            SET name = ?, slug = ?, location = ?, date = ?, is_completed = ?`;
+        const queryParams = [name, slug, locationValue, dateValue, isCompletedValue];
+
+        if (poster_url) {
+            updateQuery += `, poster_url = ?`;
+            queryParams.push(poster_url);
+        }
+
+        updateQuery += ` WHERE event_id = ?`;
+        queryParams.push(id);
+
+        const [result] = await connection.query(updateQuery, queryParams);
+
+        if (result.affectedRows === 0) {
+            await connection.rollback();
+            return res.status(404).json({
+                status: "error",
+                message: "No se encontró el evento a actualizar",
+            });
+        }
+
+        // Procesar fighter_ids
+        let fighterIdsArray = [];
+        if (fighter_ids) {
+            if (typeof fighter_ids === 'string') {
+                try {
+                    fighterIdsArray = JSON.parse(fighter_ids);
+                } catch (e) {
+                    console.log('fighter_ids no es JSON válido, intentando como array');
+                    fighterIdsArray = Array.isArray(fighter_ids) ? fighter_ids : [fighter_ids];
+                }
+            } else if (Array.isArray(fighter_ids)) {
+                fighterIdsArray = fighter_ids;
+            } else {
+                fighterIdsArray = [fighter_ids];
             }
         }
 
-        if (validKeys.length === 0) {
-            return res.status(400).json({
-                status: "error",
-                message: 'La solicitud no contiene datos válidos para actualizar'
-            });
+        console.log('Fighter IDs a actualizar:', fighterIdsArray);
+
+        // Eliminar todas las relaciones existentes
+        await connection.query(
+            'DELETE FROM event_fighters WHERE event_id = ?',
+            [id]
+        );
+
+        // Insertar las nuevas relaciones
+        if (fighterIdsArray.length > 0) {
+            const values = fighterIdsArray.map(fighterId => [id, parseInt(fighterId)]);
+            await connection.query(
+                'INSERT INTO event_fighters (event_id, fighter_id) VALUES ?',
+                [values]
+            );
         }
 
-        const change = validKeys.map(key => `${key} = ?`).join(', ');
-        const finalValues = [...validValues, id];
-
-        const sqlUpdate = `UPDATE events SET ${change} WHERE event_id = ?`;
-
-        const [result] = await pool.query(sqlUpdate, finalValues);
-
-        if (result.affectedRows === 0) {
-            return res.status(200).json({
-                status: "success",
-                message: "Evento encontrado, pero no se detectaron cambios"
-            });
-        }
+        await connection.commit();
 
         res.status(200).json({
             status: "success",
             message: "Evento actualizado con éxito",
-            data_updated: fieldsToUpdate,
+            fighters_updated: fighterIdsArray.length
         });
-
-
-
     } catch (error) {
+        await connection.rollback();
         console.error("No se ha podido actualizar el evento: ", error);
-
-        // Manejo de error si slug duplicado
-        if (error.code === 'ER_DUP_ENTRY') {
-            return res.status(409).json({
-                status: "error",
-                message: "Ya existe un evento con un slug similar. Intente modificar el nombre."
-            });
-        }
-
         res.status(500).json({
             status: "error",
             message: "Error al intentar actualizar el evento",
-        })
+        });
+    } finally {
+        connection.release();
     }
 }
 
-//Borrar evento
+// Borrar evento
 const deleteEvents = async (req, res) => {
-
     const { id } = req.params;
 
     try {
-
         const sqlQuery = 'DELETE FROM events WHERE event_id = ?';
         const [result] = await pool.query(sqlQuery, [id]);
 
@@ -286,10 +363,8 @@ const deleteEvents = async (req, res) => {
             status: "success",
             message: `Evento con id ${id} eliminado`
         });
-
     } catch (error) {
         console.error("Error al eliminar el evento: ", error);
-
         res.status(500).json({
             status: "error",
             message: "Error al intentar eliminar el evento",
@@ -297,9 +372,8 @@ const deleteEvents = async (req, res) => {
     }
 }
 
-//Añadir un peleador a un evento de MMA
+// Añadir un peleador a un evento de MMA
 const addFighterToEvent = async (req, res) => {
-
     const { eventId } = req.params;
     const { fighterId } = req.body;
 
@@ -321,11 +395,9 @@ const addFighterToEvent = async (req, res) => {
             message: `Luchador con id ${fighterId} añadido al evento ${eventId}`,
             event_fighter_id: result.insertId,
         })
-
     } catch (error) {
         console.error("Error al añadir al luchador al evento: ", error);
 
-        // si el luchador ya está en el evento para que no se duplique
         if (error.code === 'ER_DUP_ENTRY') {
             return res.status(409).json({
                 status: "error",
@@ -333,7 +405,6 @@ const addFighterToEvent = async (req, res) => {
             });
         }
 
-        // Si event_id o fighter_id no existen
         if (error.code === 'ER_NO_REFERENCED_ROW_2') {
             return res.status(404).json({
                 status: "error",
@@ -348,15 +419,16 @@ const addFighterToEvent = async (req, res) => {
     }
 }
 
-//Obtener todos los peleadores de un evento
+// Obtener todos los peleadores de un evento
 const getEventRoster = async (req, res) => {
-
     const { eventId } = req.params;
 
     try {
-
-        const sqlQuery = `SELECT f.fighter_id, f.first_name, f.last_name, f.nickname, f.weight_class, f.slug
-            FROM event_fighters ef JOIN fighters f ON ef.fighter_id = f.fighter_id WHERE ef.event_id = ?`;
+        const sqlQuery = `
+            SELECT f.fighter_id, f.first_name, f.last_name, f.nickname, f.weight_class, f.slug, f.photo_url
+            FROM event_fighters ef 
+            JOIN fighters f ON ef.fighter_id = f.fighter_id 
+            WHERE ef.event_id = ?`;
 
         const [fighters] = await pool.query(sqlQuery, [eventId]);
 
@@ -373,7 +445,6 @@ const getEventRoster = async (req, res) => {
             results: fighters.length,
             roster: fighters,
         });
-
     } catch (error) {
         console.error("Error al obtener los peleadores del evento");
         res.status(500).json({
@@ -383,9 +454,8 @@ const getEventRoster = async (req, res) => {
     }
 }
 
-//Borrar peleadores de un evento
+// Borrar peleadores de un evento
 const deleteFighterFromEvent = async (req, res) => {
-
     const { eventId, fighterId } = req.params;
 
     try {
@@ -403,7 +473,6 @@ const deleteFighterFromEvent = async (req, res) => {
             status: "success",
             message: `Luchador con id ${fighterId} eliminado del evento ${eventId}`,
         })
-
     } catch (error) {
         console.error("Error al eliminar la relación luchador/evento: ", error);
         res.status(500).json({
@@ -413,7 +482,7 @@ const deleteFighterFromEvent = async (req, res) => {
     }
 }
 
-//Buscar eventos
+// Buscar eventos
 const searchEvents = async (req, res) => {
     const searchTerm = req.query.q;
 
@@ -428,16 +497,17 @@ const searchEvents = async (req, res) => {
         const searchPattern = `%${searchTerm}%`;
 
         const sqlQuery = `
-            SELECT event_id, name, location, date, slug FROM events WHERE name LIKE ? OR location LIKE ? OR slug LIKE ?`;
+            SELECT event_id, name, location, date, slug 
+            FROM events 
+            WHERE name LIKE ? OR location LIKE ? OR slug LIKE ?`;
 
-        const [events] = await pool.query(sqlQuery, [searchPattern, searchPattern, searchPattern,]);
+        const [events] = await pool.query(sqlQuery, [searchPattern, searchPattern, searchPattern]);
 
         res.status(200).json({
             status: "success",
             results: events.length,
             events: events,
         });
-
     } catch (error) {
         console.error("Error al buscar eventos:", error);
         res.status(500).json({
@@ -445,7 +515,7 @@ const searchEvents = async (req, res) => {
             message: "Error interno del servidor al realizar la búsqueda",
         });
     }
-};
+}
 
 
 module.exports = {
