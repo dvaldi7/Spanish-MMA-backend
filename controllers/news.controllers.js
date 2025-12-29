@@ -3,19 +3,39 @@ const slugify = require('slugify');
 
 
 const getNews = async (req, res) => {
-
     try {
-        const [rows] = await pool.query('SELECT * FROM news ORDER BY published_at DESC');
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 5;
+        const offset = (page - 1) * limit;
 
-        res.json(rows);
+
+        const [news] = await pool.query(
+            'SELECT * FROM news ORDER BY published_at DESC LIMIT ? OFFSET ?',
+            [limit, offset]
+        );
+
+        const [[{ total }]] = await pool.query('SELECT COUNT(*) as total FROM news');
+
+        const total_pages = Math.ceil(total / limit);
+
+        res.json({
+            news: news,
+            pagination: {
+                total_items: total,
+                total_pages: total_pages,
+                current_page: page,
+                limit: limit
+            }
+        });
 
     } catch (error) {
+        console.error(error);
         res.status(500).json({
             status: "error",
             message: "Error al obtener las noticias",
-        })
+        });
     }
-}
+};
 
 const createNews = async (req, res) => {
 
@@ -65,7 +85,7 @@ let image_url = null;
             message: "error al crear la noticia",
         })
     }
-}
+};
 
 
 
