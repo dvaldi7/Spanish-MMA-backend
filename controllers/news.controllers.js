@@ -1,4 +1,5 @@
 const pool = require('../config/db');
+const slugify = require('slugify');
 
 
 const getNews = async (req, res) => {
@@ -20,8 +21,7 @@ const createNews = async (req, res) => {
 
 const { title, content } = req.body;
 
-const titleForSlug = title;
-const slug = slugify(titleForSlug, { lower: true, strict: true });
+const slug = slugify(title, { lower: true, strict: true });
 
 let image_url = null;
     if (req.file) {
@@ -31,17 +31,15 @@ let image_url = null;
     try {
         const sqlQuery = `
             INSERT INTO news (
-                news_id, title, content, image_url, slug, published_at 
+                title, content, image_url, slug 
             ) 
-            VALUES (?, ?, ?, ?, ?, ? )
+            VALUES (?, ?, ?, ?)
         `;
         const [ result ] = await pool.query(sqlQuery, [
-            news_id, 
             title, 
             content, 
             image_url, 
             slug, 
-            published_at 
         ]);
 
         res.status(201).json({
