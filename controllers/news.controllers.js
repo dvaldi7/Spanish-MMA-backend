@@ -87,10 +87,36 @@ let image_url = null;
     }
 };
 
+const getNewsBySlug = async (req, res) => {
+
+    const { slug } = req.params;
+
+    try{
+        const [result] = await pool.query('SELECT * FROM news WHERE slug = ?', [slug]);
+
+        if (result.affectedRows === 0 ){
+            return res.status(400).json({
+                status: "error",
+                message: "Noticia no encontrada",
+            })
+        }
+
+        res.json(result[0]);
+
+    }catch(error){
+        console.error("Error al cargar las noticias: ", error);
+        res.status(500).json({
+            status: "error",
+            message: "Error interno del servidor al cargar las noticias",
+        })
+    }
+};
+
 
 
 
 module.exports = {
     getNews,
     createNews,
+    getNewsBySlug,
 }

@@ -6,7 +6,8 @@ const newsController = require('../controllers/news.controllers');
 const auth = require('../middleware/auth');
 
 // Rutas públicas
-router.get('/', newsController.getNews)
+router.get('/', newsController.getNews);
+router.get('/slug/:slug', newsController.getNewsBySlug);
 
 // Rutas privadas
 router.post('/', auth(['admin']), upload.single('image'), newsController.createNews);
