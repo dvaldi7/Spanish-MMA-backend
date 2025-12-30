@@ -39,11 +39,11 @@ const getNews = async (req, res) => {
 
 const createNews = async (req, res) => {
 
-const { title, content } = req.body;
+    const { title, content } = req.body;
 
-const slug = slugify(title, { lower: true, strict: true });
+    const slug = slugify(title, { lower: true, strict: true });
 
-let image_url = null;
+    let image_url = null;
     if (req.file) {
         image_url = `images/news/${req.file.filename}`;
     }
@@ -55,11 +55,11 @@ let image_url = null;
             ) 
             VALUES (?, ?, ?, ?)
         `;
-        const [ result ] = await pool.query(sqlQuery, [
-            title, 
-            content, 
-            image_url, 
-            slug, 
+        const [result] = await pool.query(sqlQuery, [
+            title,
+            content,
+            image_url,
+            slug,
         ]);
 
         res.status(201).json({
@@ -75,8 +75,8 @@ let image_url = null;
         if (error.code === 'ER_DUP_ENTRY') {
             // Si el slug ya existe, le añadimos un timestamp para que sea único
             slug = `${slug}-${Date.now()}`;
-            return res.status(400).json({ 
-                message: "Ya existe una noticia con un título similar, por favor cámbialo un poco." 
+            return res.status(400).json({
+                message: "Ya existe una noticia con un título similar, por favor cámbialo un poco."
             });
         }
         console.error("Error: ", error);
@@ -91,10 +91,10 @@ const getNewsBySlug = async (req, res) => {
 
     const { slug } = req.params;
 
-    try{
+    try {
         const [result] = await pool.query('SELECT * FROM news WHERE slug = ?', [slug]);
 
-        if (result.affectedRows === 0 ){
+        if (result.affectedRows === 0) {
             return res.status(400).json({
                 status: "error",
                 message: "Noticia no encontrada",
@@ -103,7 +103,7 @@ const getNewsBySlug = async (req, res) => {
 
         res.json(result[0]);
 
-    }catch(error){
+    } catch (error) {
         console.error("Error al cargar las noticias: ", error);
         res.status(500).json({
             status: "error",
@@ -112,6 +112,39 @@ const getNewsBySlug = async (req, res) => {
     }
 };
 
+const updateNews = async (req, res) => {
+
+};
+
+const deleteNews = async (req, res) => {
+
+    const { id } = req.params;
+
+    try {
+        const [result] = await pool.query('DELETE FROM news WHERE news_id = ?', [id]);
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({
+                status: "error",
+                message: "Noticia no encontrada",
+            })
+        }
+
+        res.json({
+            status: "success",
+            message: "Noticia eliminada correctamente",
+        })
+    } catch (error) {
+        console.error("Error al eliminar la noticia: ", error);
+
+        res.status(500).json({
+            status: "error",
+            message: "Error interlo al eliminar la noticia",
+            error: error.message,
+        })
+    }
+
+};
 
 
 
@@ -119,4 +152,5 @@ module.exports = {
     getNews,
     createNews,
     getNewsBySlug,
+    deleteNews,
 }
