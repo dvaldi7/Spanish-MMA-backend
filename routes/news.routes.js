@@ -12,6 +12,7 @@ router.get('/slug/:slug', newsController.getNewsBySlug);
 // Rutas privadas
 router.post('/', auth(['admin']), upload.single('image'), newsController.createNews);
 router.delete('/:id',auth(['admin']), newsController.deleteNews);
+router.put('/:id', auth(['admin']), upload.single('image'), newsController.updateNews);
 
 
 

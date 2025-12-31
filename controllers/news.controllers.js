@@ -114,6 +114,46 @@ const getNewsBySlug = async (req, res) => {
 
 const updateNews = async (req, res) => {
 
+    const  { id } = req.params;
+    const { title, content } = req.body;
+
+    const slug = slugify(title, {lower:true, strict: true });
+
+    try{
+        let sqlQuery;
+        let params;
+
+        if (req.file) {
+            const image_url = `images/news/${req.file.filename}`;
+            sqlQuery = 'UPDATE news SET title = ?, content = ?, slug = ?, image_url = ? WHERE news_id = ?';
+            params = [title, content, slug, image_url, id];
+        }else{
+            sqlQuery = `UPDATE news SET title = ?, content = ?, slug = ? WHERE news_id = ?`;
+            params = [title, content, slug, id];
+        }
+
+        const [result] = await pool.query(sqlQuery, params);
+
+        if (result.affectedRows === 0){
+            return res.status(404).json({
+                status: "error",
+                message: "Noticia no encontrada",
+            })
+        }
+
+        res.status(200).json({
+            status: "success",
+            message: "Notica actualizada correctamente",
+        })
+
+    }catch (error){
+        console.error("Error interno al editar la notica: ", error);
+
+        res.status(500).json({
+            status: "error",
+            message: "Error interno al editar la noticia",
+        })
+    }
 };
 
 const deleteNews = async (req, res) => {
@@ -153,4 +193,5 @@ module.exports = {
     createNews,
     getNewsBySlug,
     deleteNews,
+    updateNews,
 }
