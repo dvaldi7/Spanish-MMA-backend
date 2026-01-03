@@ -9,7 +9,10 @@ const path = require('path');
 const fightersRouter = require("./routes/fighters.routes");
 const companiesRouter = require("./routes/companies.routes");
 const eventsRouter = require("./routes/events.routes");
+const newsRouter = require("./routes/news.routes");
 const authRoutes = require("./routes/auth.routes");
+
+
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -37,6 +40,7 @@ app.get('/', (req, res) => {
 app.use("/api/fighters", fightersRouter);
 app.use("/api/events", eventsRouter);
 app.use("/api/companies", companiesRouter);
+app.use("/api/news", newsRouter);
 
 
 // Levantar servidor

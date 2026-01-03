@@ -16,6 +16,8 @@ destination: (req, file, cb) => {
             subDir = 'companies'; 
         } else if (file.fieldname === 'poster') {
             subDir = 'events'; 
+        } else if (file.fieldname === 'image') {
+            subDir = 'news'; 
         }
 
         const uploadDir = path.join(baseDir, subDir);
