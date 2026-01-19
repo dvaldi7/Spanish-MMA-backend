@@ -1,8 +1,5 @@
 const pool = require("../config/db");
 const slugify = require("slugify");
-const path = require("path");
-const fs = require("fs/promises");
-
 
 //Ver peleadores
 const getFighters = async (req, res) => {
