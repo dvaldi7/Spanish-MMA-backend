@@ -70,10 +70,7 @@ const createCompanies = async (req, res) => {
     const nameForSlug = name;
     const slug = slugify(nameForSlug, { lower: true, strict: true });
 
-    let logo_url = null;
-    if (req.file) {
-        logo_url = `images/companies/${req.file.filename}`;
-    }
+    let logo_url = req.file ? req.file.path : null;
 
     const headquarters = req.body.headquarters || '';
     const country = req.body.country || '';
@@ -190,10 +187,9 @@ const updateCompanies = async (req, res) => {
     }
 
     if (req.file) {
-        const newLogoUrl = `images/companies/${req.file.filename}`;
-
-        fieldsToUpdate.logo_url = newLogoUrl;
+        fieldsToUpdate.logo_url = req.file.path;
     }
+    
     if (!req.file && req.body.logo_url !== undefined) {
         fieldsToUpdate.logo_url = req.body.logo_url;
     }
@@ -385,9 +381,6 @@ const getCompanyFighters = async (req, res) => {
         });
     }
 }
-
-
-
 
 module.exports = {
     getCompanies,
