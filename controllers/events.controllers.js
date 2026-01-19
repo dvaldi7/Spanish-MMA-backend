@@ -1,7 +1,5 @@
 const pool = require("../config/db");
 const slugify = require("slugify");
-const path = require('path');
-const fs = require('fs/promises');
 
 // Ver eventos
 const getEvents = async (req, res) => {
@@ -73,10 +71,7 @@ const createEvents = async (req, res) => {
             });
         }
 
-        let poster_url = null;
-        if (req.file) {
-            poster_url = path.join('images/events', req.file.filename).replace(/\\/g, '/');
-        }
+        let poster_url = req.file ? req.file.path : null;
 
         const slug = slugify(name, { lower: true, strict: true });
         const dateValue = date && date.trim() !== '' ? date : null;
@@ -249,10 +244,7 @@ const updateEvents = async (req, res) => {
         const locationValue = location && location.trim() !== '' ? location : null;
         const isCompletedValue = (is_completed === 'true' || is_completed === true) ? 1 : 0;
 
-        let poster_url = null;
-        if (req.file) {
-            poster_url = path.join('images/events', req.file.filename).replace(/\\/g, '/');
-        }
+        let poster_url = req.file ? req.file.path : null;
 
         const [existingSlug] = await connection.query(
             `SELECT event_id FROM events WHERE slug = ? AND event_id != ?`,
