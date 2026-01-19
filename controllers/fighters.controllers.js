@@ -6,40 +6,31 @@ const fs = require("fs/promises");
 
 //Ver peleadores
 const getFighters = async (req, res) => {
-
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const searchTerm = req.query.search || '';
-
-
     const offset = (page - 1) * limit;
 
     try {
         let sqlQuery = `SELECT f.*, c.name AS company_name, c.slug AS company_slug 
-                            FROM fighters f
-                            LEFT JOIN companies c ON f.company_id = c.company_id`;
+                        FROM fighters f
+                        LEFT JOIN companies c ON f.company_id = c.company_id`;
 
         let countQuery = 'SELECT COUNT(fighter_id) AS total_fighters FROM fighters;';
-
         let queryParams = [];
         let countParams = [];
 
         if (searchTerm) {
             const searchPattern = `%${searchTerm}%`;
-
             const whereClause = `WHERE first_name LIKE ? OR last_name LIKE ? OR nickname LIKE ? `;
             countQuery = `SELECT COUNT(fighter_id) AS total_fighters FROM fighters ${whereClause}`;
-
             sqlQuery += ` WHERE f.first_name LIKE ? OR f.last_name LIKE ? OR f.nickname LIKE ? `;
-
             queryParams.push(searchPattern, searchPattern, searchPattern);
-            countParams.push(searchPattern, searchPattern, searchPattern)
+            countParams.push(searchPattern, searchPattern, searchPattern);
         }
 
         sqlQuery += ` ORDER BY f.fighter_id ASC LIMIT ? OFFSET ? ;`;
-
         queryParams.push(limit, offset);
-
 
         const [fighters] = await pool.query(sqlQuery, queryParams);
         const [totalResults] = await pool.query(countQuery, countParams);
@@ -57,16 +48,13 @@ const getFighters = async (req, res) => {
             },
             results: fighters.length,
             fighters: fighters,
-        })
+        });
 
     } catch (error) {
-        console.error("Error al obtener los peleadores: ", error)
-        res.status(500).json({
-            error: "error",
-            message: "Error al obtener los luchadores",
-        });
+        console.error("Error al obtener los peleadores: ", error);
+        res.status(500).json({ status: "error", message: "Error al obtener los luchadores" });
     }
-}
+};
 
 //Crear nuevo peleador
 const createFighters = async (req, res) => {
@@ -81,25 +69,21 @@ const createFighters = async (req, res) => {
         weight_class
     } = req.body;
 
-    const nameForSlug = `${first_name} ${last_name}`;
-    const slug = slugify(nameForSlug, { lower: true, strict: true });
-
-    let photo_url = req.file
-        ? path.join('images/fighters', req.file.filename).replace(/\\/g, '/')
-        : '';
-
-    // Si compañía como string vacío, la convertimos a null
-    const final_company_id = company_id === '' ? null : parseInt(company_id);
-
+    // Validación básica
     if (!first_name || !last_name) {
-        if (req.file) {
-            await fs.unlink(req.file.path).catch(err => console.error("Error al borrar archivo tras validación:", err));
-        }
         return res.status(400).json({
             status: "error",
             message: "Faltan algunos campos obligatorios (nombre o apellido)",
         });
     }
+
+    const nameForSlug = `${first_name} ${last_name}`;
+    const slug = slugify(nameForSlug, { lower: true, strict: true });
+
+    // Cloudinary nos da la URL en req.file.path
+    let photo_url = req.file ? req.file.path : '';
+
+    const final_company_id = company_id === '' ? null : parseInt(company_id);
 
     try {
         const [result] = await pool.query(
@@ -129,24 +113,15 @@ const createFighters = async (req, res) => {
 
     } catch (error) {
         console.error("Error al crear el peleador: ", error);
-
-        if (req.file) {
-            await fs.unlink(req.file.path).catch(err => console.error("Error al borrar archivo tras fallo en DB:", err));
-        }
-
         if (error.code === 'ER_DUP_ENTRY') {
             return res.status(409).json({
                 status: "error",
                 message: "Error de duplicidad: Ya existe un peleador con ese nombre (slug)",
             });
         }
-
-        res.status(500).json({
-            status: "error",
-            message: "Error al crear el peleador",
-        })
+        res.status(500).json({ status: "error", message: "Error al crear el peleador" });
     }
-}
+};
 
 //Obtener peleador por ID
 const getFightersById = async (req, res) => {
@@ -215,10 +190,11 @@ const getFightersBySlug = async (req, res) => {
 //Actualizar peleador
 const updateFighter = async (req, res) => {
     const { id } = req.params;
-    let fieldsToUpdate = req.body;
+    let fieldsToUpdate = { ...req.body };
 
+    // Si viene una foto nueva de Cloudinary
     if (req.file) {
-        fieldsToUpdate.photo_url = path.join('images/fighters', req.file.filename).replace(/\\/g, '/');
+        fieldsToUpdate.photo_url = req.file.path;
     }
 
     const validKeys = [];
@@ -226,7 +202,7 @@ const updateFighter = async (req, res) => {
 
     for (const key in fieldsToUpdate) {
         const value = fieldsToUpdate[key];
-
+        // Filtramos para no meter el objeto 'file' o campos vacíos erróneos
         if (key !== 'photo' && value !== undefined) {
             validKeys.push(key);
             validValues.push(value);
@@ -237,6 +213,7 @@ const updateFighter = async (req, res) => {
         return res.status(400).json({ message: 'No hay datos válidos para actualizar.' });
     }
 
+    // Manejo de compañía nula
     const companyIndex = validKeys.indexOf('company_id');
     if (companyIndex !== -1 && validValues[companyIndex] === '') {
         validValues[companyIndex] = null;
@@ -248,24 +225,16 @@ const updateFighter = async (req, res) => {
 
     try {
         await pool.query(query, finalValues);
-
         res.status(200).json({
             message: 'Peleador actualizado con éxito',
             fighter_id: id,
-            new_photo_url: req.file ? fieldsToUpdate.photo_url : undefined
+            new_photo_url: fieldsToUpdate.photo_url
         });
-
     } catch (error) {
         console.error("Error al actualizar el peleador:", error);
-
-        res.status(500).json({
-            message: 'Error al actualizar el peleador',
-            error: error.message,
-            sql: error.sql
-        });
+        res.status(500).json({ message: 'Error al actualizar el peleador', error: error.message });
     }
-}
-
+};
 //Borrar peleador
 const deleteFighter = async (req, res) => {
 

@@ -1,42 +1,30 @@
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const cloudinary = require('cloudinary').v2;
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
 
-const baseDir = path.join(__dirname, '../public/images');
-
-const storage = multer.diskStorage({
-
-destination: (req, file, cb) => {
-        
-      let subDir = 'default';
-        
-        if (file.fieldname === 'photo') {
-            subDir = 'fighters'; 
-        } else if (file.fieldname === 'logo') {
-            subDir = 'companies'; 
-        } else if (file.fieldname === 'poster') {
-            subDir = 'events'; 
-        } else if (file.fieldname === 'image') {
-            subDir = 'news'; 
-        }
-
-        const uploadDir = path.join(baseDir, subDir);
-
-        // Crear carpeta si no existe
-        if (!fs.existsSync(uploadDir)) {
-            fs.mkdirSync(uploadDir, { recursive: true });
-        }
-        
-        cb(null, uploadDir);
-      },
-
-  filename: (req, file, cb) => {
-
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname);
-    const safeName = file.originalname.replace(/\s+/g, '_');
-    cb(null, `${uniqueSuffix}-${safeName}${ext}`);
-  },
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-module.exports = multer({ storage });
+const storage = new CloudinaryStorage({
+    cloudinary: cloudinary,
+    params: async (req, file) => {
+        let subDir = 'default';
+        if (file.fieldname === 'photo') subDir = 'fighters';
+        else if (file.fieldname === 'logo') subDir = 'companies';
+        else if (file.fieldname === 'poster') subDir = 'events';
+        else if (file.fieldname === 'image') subDir = 'news';
+
+        return {
+            folder: `spanish-mma/${subDir}`, 
+            allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
+            public_id: `${Date.now()}-${file.originalname.replace(/\s+/g, '_').split('.')[0]}`
+        };
+    },
+});
+
+
+const upload = multer({ storage: storage });
+module.exports = upload;
