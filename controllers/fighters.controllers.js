@@ -63,7 +63,11 @@ const createFighters = async (req, res) => {
         record_losses,
         record_draws,
         company_id,
-        weight_class
+        weight_class,
+        team,
+        city,
+        bio,
+        recent_fights
     } = req.body;
 
     // Validación básica
@@ -86,7 +90,7 @@ const createFighters = async (req, res) => {
         const [result] = await pool.query(
             `INSERT INTO fighters 
             (first_name, last_name, nickname, record_wins, record_losses, record_draws, weight_class, slug, 
-            photo_url, company_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            photo_url, company_id, team, city, bio, recent_fights) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 first_name,
                 last_name,
@@ -98,6 +102,10 @@ const createFighters = async (req, res) => {
                 slug,
                 photo_url,
                 final_company_id,
+                team || null,
+                city || null,
+                bio || null,
+                recent_fights || null,
             ]
         );
 
