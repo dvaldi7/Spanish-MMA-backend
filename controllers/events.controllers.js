@@ -61,7 +61,7 @@ const createEvents = async (req, res) => {
     try {
         await connection.beginTransaction();
 
-        const { name, location, date, is_completed, fighter_ids } = req.body;
+        const { name, location, date, is_completed, fighter_ids, description } = req.body;
 
         if (!name || !name.trim()) {
             await connection.rollback();
@@ -77,6 +77,7 @@ const createEvents = async (req, res) => {
         const dateValue = date && date.trim() !== '' ? date : null;
         const locationValue = location && location.trim() !== '' ? location : null;
         const isCompletedValue = (is_completed === 'true' || is_completed === true) ? 1 : 0;
+        const descriptionValue = description || null;
 
         const [existingSlug] = await connection.query(
             `SELECT event_id FROM events WHERE slug = ?`,
@@ -93,9 +94,9 @@ const createEvents = async (req, res) => {
 
         // Insertar el evento
         const [result] = await connection.query(
-            `INSERT INTO events (name, slug, location, date, is_completed, poster_url)
-             VALUES (?, ?, ?, ?, ?, ?)`,
-            [name, slug, locationValue, dateValue, isCompletedValue, poster_url]
+            `INSERT INTO events (name, slug, location, date, is_completed, poster_url, description)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [name, slug, locationValue, dateValue, isCompletedValue, poster_url, descriptionValue]
         );
 
         const eventId = result.insertId;
