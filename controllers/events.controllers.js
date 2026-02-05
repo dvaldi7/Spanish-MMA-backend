@@ -221,7 +221,7 @@ const updateEvents = async (req, res) => {
     try {
         await connection.beginTransaction();
 
-        const { name, location, date, is_completed, fighter_ids } = req.body;
+        const { name, location, date, is_completed, fighter_ids, description } = req.body;
         const { id } = req.params;
 
         if (!id) {
@@ -244,6 +244,7 @@ const updateEvents = async (req, res) => {
         const dateValue = date && date.trim() !== '' ? date : null;
         const locationValue = location && location.trim() !== '' ? location : null;
         const isCompletedValue = (is_completed === 'true' || is_completed === true) ? 1 : 0;
+        const descriptionValue = description || null;
 
         let poster_url = req.file ? req.file.path : null;
 
@@ -263,8 +264,8 @@ const updateEvents = async (req, res) => {
         // Actualizar el evento
         let updateQuery = `
             UPDATE events 
-            SET name = ?, slug = ?, location = ?, date = ?, is_completed = ?`;
-        const queryParams = [name, slug, locationValue, dateValue, isCompletedValue];
+            SET name = ?, slug = ?, location = ?, date = ?, is_completed = ?, description = ?`;
+        const queryParams = [name, slug, locationValue, dateValue, isCompletedValue, descriptionValue];
 
         if (poster_url) {
             updateQuery += `, poster_url = ?`;
