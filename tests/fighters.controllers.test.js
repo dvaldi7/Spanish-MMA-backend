@@ -118,13 +118,16 @@ test('búsqueda por nombre completo añade CONCAT_WS y 5 patrones parametrizados
     const [listSql, listParams] = queryCalls[0];
     const [countSql, countParams] = queryCalls[1];
 
-    assert.ok(listSql.includes("CONCAT_WS(' ', first_name, last_name) LIKE ?"));
-    assert.ok(listSql.includes('slug LIKE ?'));
+    assert.ok(listSql.includes("CONCAT_WS(' ', f.first_name, f.last_name) LIKE ?"));
+    assert.ok(listSql.includes('f.slug LIKE ?'));
     assert.ok(listSql.includes('f.nickname LIKE ?'));
+    assert.ok(!listSql.includes('f.CONCAT_WS'), 'CONCAT_WS no debe recibir prefijo de tabla');
     assert.equal(listParams.length, 7); // 5 patrones + limit + offset
     assert.ok(listParams.slice(0, 5).every((p) => p === '%Ilia Topuria%'));
 
     assert.ok(countSql.includes("CONCAT_WS(' ', first_name, last_name) LIKE ?"));
+    assert.ok(countSql.includes('slug LIKE ?'));
+    assert.ok(!countSql.includes('f.'), 'el COUNT no usa alias');
     assert.equal(countParams.length, 5);
     assert.equal(res.body.pagination.total_items, 1);
 });

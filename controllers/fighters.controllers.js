@@ -38,15 +38,22 @@ const getFighters = async (req, res) => {
 
         if (searchTerm) {
             const searchPattern = `%${escapeLikePattern(searchTerm)}%`;
-            const whereConditions = [
-                'first_name LIKE ? ESCAPE \'\\\\\'',
-                'last_name LIKE ? ESCAPE \'\\\\\'',
-                'nickname LIKE ? ESCAPE \'\\\\\'',
-                'slug LIKE ? ESCAPE \'\\\\\'',
-                "CONCAT_WS(' ', first_name, last_name) LIKE ? ESCAPE '\\\\'",
-            ];
-            const countWhere = `WHERE ${whereConditions.join(' OR ')}`;
-            const listWhere = `WHERE ${whereConditions.map((condition) => `f.${condition}`).join(' OR ')}`;
+            const like = (column) => `${column} LIKE ? ESCAPE '\\\\'`;
+            //COUNT sin alias; listado cualifica con f. (slug existe también en companies)
+            const countWhere = `WHERE ${[
+                like('first_name'),
+                like('last_name'),
+                like('nickname'),
+                like('slug'),
+                like("CONCAT_WS(' ', first_name, last_name)"),
+            ].join(' OR ')}`;
+            const listWhere = `WHERE ${[
+                like('f.first_name'),
+                like('f.last_name'),
+                like('f.nickname'),
+                like('f.slug'),
+                like("CONCAT_WS(' ', f.first_name, f.last_name)"),
+            ].join(' OR ')}`;
 
             countQuery = `SELECT COUNT(fighter_id) AS total_fighters FROM fighters ${countWhere}`;
             sqlQuery += ` ${listWhere} `;
