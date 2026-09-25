@@ -1,11 +1,30 @@
 const pool = require("../config/db");
 const slugify = require("slugify");
 
+//Límites del listado de luchadores (TASK-0035)
+const FIGHTERS_DEFAULT_LIMIT = 10;
+const FIGHTERS_MAX_LIMIT = 50;
+
+//Normaliza page/limit dentro de una allowlist: valores inválidos vuelven al default, limit acotado a MAX
+const normalizePagination = (page, limit) => {
+    const parsedPage = parseInt(page, 10);
+    const parsedLimit = parseInt(limit, 10);
+
+    const safePage = Number.isInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+    const safeLimit = Number.isInteger(parsedLimit) && parsedLimit > 0
+        ? Math.min(parsedLimit, FIGHTERS_MAX_LIMIT)
+        : FIGHTERS_DEFAULT_LIMIT;
+
+    return { page: safePage, limit: safeLimit };
+};
+
+//Escapa los comodines de LIKE para que el término se trate como literal
+const escapeLikePattern = (term) => term.replace(/[\\%_]/g, (char) => `\\${char}`);
+
 //Ver peleadores
 const getFighters = async (req, res) => {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const searchTerm = req.query.search || '';
+    const { page, limit } = normalizePagination(req.query.page, req.query.limit);
+    const searchTerm = typeof req.query.search === 'string' ? req.query.search.trim() : '';
     const offset = (page - 1) * limit;
 
     try {
@@ -18,12 +37,21 @@ const getFighters = async (req, res) => {
         let countParams = [];
 
         if (searchTerm) {
-            const searchPattern = `%${searchTerm}%`;
-            const whereClause = `WHERE first_name LIKE ? OR last_name LIKE ? OR nickname LIKE ? `;
-            countQuery = `SELECT COUNT(fighter_id) AS total_fighters FROM fighters ${whereClause}`;
-            sqlQuery += ` WHERE f.first_name LIKE ? OR f.last_name LIKE ? OR f.nickname LIKE ? `;
-            queryParams.push(searchPattern, searchPattern, searchPattern);
-            countParams.push(searchPattern, searchPattern, searchPattern);
+            const searchPattern = `%${escapeLikePattern(searchTerm)}%`;
+            const whereConditions = [
+                'first_name LIKE ? ESCAPE \'\\\\\'',
+                'last_name LIKE ? ESCAPE \'\\\\\'',
+                'nickname LIKE ? ESCAPE \'\\\\\'',
+                'slug LIKE ? ESCAPE \'\\\\\'',
+                "CONCAT_WS(' ', first_name, last_name) LIKE ? ESCAPE '\\\\'",
+            ];
+            const countWhere = `WHERE ${whereConditions.join(' OR ')}`;
+            const listWhere = `WHERE ${whereConditions.map((condition) => `f.${condition}`).join(' OR ')}`;
+
+            countQuery = `SELECT COUNT(fighter_id) AS total_fighters FROM fighters ${countWhere}`;
+            sqlQuery += ` ${listWhere} `;
+            queryParams.push(searchPattern, searchPattern, searchPattern, searchPattern, searchPattern);
+            countParams.push(searchPattern, searchPattern, searchPattern, searchPattern, searchPattern);
         }
 
         sqlQuery += ` ORDER BY f.fighter_id ASC LIMIT ? OFFSET ? ;`;
