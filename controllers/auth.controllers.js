@@ -3,6 +3,7 @@ require('dotenv').config();
 const pool = require('../config/db');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const { JWT_ALGORITHMS, JWT_ISSUER, JWT_AUDIENCE, JWT_EXPIRES_IN } = require('../config/jwt');
 
 const login = async (req, res) => {
    
@@ -45,7 +46,12 @@ const login = async (req, res) => {
             role: user.role,
         };
 
-        const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' }); 
+        // TASK-0006: misma identidad de emisión que exige el verify (config/jwt.js)
+        const token = jwt.sign(payload, process.env.JWT_SECRET, {
+            expiresIn: JWT_EXPIRES_IN,
+            issuer: JWT_ISSUER,
+            audience: JWT_AUDIENCE,
+        });
 
         res.status(200).json({ 
             status: "success", 
