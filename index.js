@@ -2,6 +2,17 @@ import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 
 require('dotenv').config();
+
+// TASK-0006 paso 2: fail-fast de configuración antes de crear pool/servidor.
+// Sin secretos en los mensajes: solo nombres de variables faltantes.
+const { validateRequiredEnv } = require('./config/env');
+try {
+    validateRequiredEnv();
+} catch (err) {
+    console.error(`[config] ${err.message}`);
+    process.exit(1);
+}
+
 const express = require('express');
 const cors = require('cors');
 const pool = require("./config/db");
