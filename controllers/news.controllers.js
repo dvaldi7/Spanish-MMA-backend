@@ -41,6 +41,14 @@ const createNews = async (req, res) => {
 
     const { title, content } = req.body;
 
+    // Validación: title y content obligatorios y de tipo texto (evita slugify(undefined))
+    if (typeof title !== 'string' || title.trim() === '' || typeof content !== 'string' || content.trim() === '') {
+        return res.status(400).json({
+            status: "error",
+            message: "title y content son obligatorios y deben ser texto",
+        });
+    }
+
     const slug = slugify(title, { lower: true, strict: true });
 
     let image_url = null;
@@ -51,8 +59,8 @@ const createNews = async (req, res) => {
     try {
         const sqlQuery = `
             INSERT INTO news (
-                title, content, image_url, slug 
-            ) 
+                title, content, image_url, slug
+            )
             VALUES (?, ?, ?, ?)
         `;
         const [result] = await pool.query(sqlQuery, [
@@ -71,11 +79,10 @@ const createNews = async (req, res) => {
         })
 
     } catch (error) {
-        // Manejo específico para slugs duplicados
+        // Manejo específico para slugs duplicados (mismo contrato que fighters/companies)
         if (error.code === 'ER_DUP_ENTRY') {
-            // Si el slug ya existe, le añadimos un timestamp para que sea único
-            slug = `${slug}-${Date.now()}`;
-            return res.status(400).json({
+            return res.status(409).json({
+                status: "error",
                 message: "Ya existe una noticia con un título similar, por favor cámbialo un poco."
             });
         }
@@ -94,8 +101,9 @@ const getNewsBySlug = async (req, res) => {
     try {
         const [result] = await pool.query('SELECT * FROM news WHERE slug = ?', [slug]);
 
-        if (result.affectedRows === 0) {
-            return res.status(400).json({
+        // SELECT devuelve filas: la no-existencia se detecta por longitud, no por affectedRows
+        if (result.length === 0) {
+            return res.status(404).json({
                 status: "error",
                 message: "Noticia no encontrada",
             })
@@ -116,6 +124,14 @@ const updateNews = async (req, res) => {
 
     const { id } = req.params;
     const { title, content } = req.body;
+
+    // Validación: title y content obligatorios y de tipo texto (evita slugify(undefined))
+    if (typeof title !== 'string' || title.trim() === '' || typeof content !== 'string' || content.trim() === '') {
+        return res.status(400).json({
+            status: "error",
+            message: "title y content son obligatorios y deben ser texto",
+        });
+    }
 
     const slug = slugify(title, { lower: true, strict: true });
 
@@ -149,6 +165,14 @@ const updateNews = async (req, res) => {
     } catch (error) {
         console.error("Error interno al editar la notica: ", error);
 
+        // Slug duplicado al editar: mismo contrato que el resto de entidades
+        if (error.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({
+                status: "error",
+                message: "Ya existe una noticia con un título similar, por favor cámbialo un poco.",
+            });
+        }
+
         res.status(500).json({
             status: "error",
             message: "Error interno al editar la noticia",
@@ -180,7 +204,6 @@ const deleteNews = async (req, res) => {
         res.status(500).json({
             status: "error",
             message: "Error interlo al eliminar la noticia",
-            error: error.message,
         })
     }
 
