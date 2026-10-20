@@ -227,41 +227,118 @@ const getFightersBySlug = async (req, res) => {
     }
 }
 
+//Allowlist y validación de updateFighter (TASK-0003): solo columnas permitidas,
+//tipos válidos y rechazo explícito de campos desconocidos (evita mass assignment)
+const UPDATE_ALLOWED_TEXT_FIELDS = [
+    'first_name',
+    'last_name',
+    'nickname',
+    'weight_class',
+    'team',
+    'city',
+    'bio',
+    'recent_fights',
+];
+const UPDATE_ALLOWED_COUNT_FIELDS = ['record_wins', 'record_losses', 'record_draws'];
+const UPDATE_ALLOWED_SPECIAL_FIELDS = ['company_id', 'photo_url'];
+const COMPANY_ID_FIELD = 'company_id';
+
+const isNonNegativeInteger = (value) => {
+    if (typeof value === 'string') {
+        // Multer entrega multipart como strings; solo dígitos (sin signos, decimales o espacios)
+        return /^[0-9]+$/.test(value.trim());
+    }
+    return Number.isInteger(value) && value >= 0;
+};
+
 //Actualizar peleador
 const updateFighter = async (req, res) => {
     const { id } = req.params;
-    let fieldsToUpdate = { ...req.body };
 
-    // Si viene una foto nueva de Cloudinary
+    //1. Rechazo explícito de campos fuera de la allowlist (mass assignment y columnas ajenas)
+    if (req.body && typeof req.body === 'object' && !Array.isArray(req.body)) {
+        const allowed = [...UPDATE_ALLOWED_TEXT_FIELDS, ...UPDATE_ALLOWED_COUNT_FIELDS, ...UPDATE_ALLOWED_SPECIAL_FIELDS];
+        const unknownFields = Object.keys(req.body).filter((key) => !allowed.includes(key));
+        if (unknownFields.length > 0) {
+            return res.status(400).json({
+                status: 'error',
+                message: `Campos no permitidos en la actualización de peleador: ${unknownFields.join(', ')}`,
+            });
+        }
+    }
+
+    const fieldsToUpdate = {};
+    const validationErrors = [];
+
+    //2. Campos de texto: solo strings (multer multipart); '' escribe vacío como el comportamiento legacy
+    for (const field of UPDATE_ALLOWED_TEXT_FIELDS) {
+        const value = req.body[field];
+        if (value === undefined) continue;
+        if (typeof value !== 'string') {
+            validationErrors.push(`${field} debe ser texto`);
+            continue;
+        }
+        fieldsToUpdate[field] = value;
+    }
+
+    //3. Counters de récord: enteros no negativos
+    for (const field of UPDATE_ALLOWED_COUNT_FIELDS) {
+        const value = req.body[field];
+        if (value === undefined) continue;
+        if (!isNonNegativeInteger(value)) {
+            validationErrors.push(`${field} debe ser un número entero no negativo`);
+            continue;
+        }
+        fieldsToUpdate[field] = typeof value === 'string' ? parseInt(value, 10) : value;
+    }
+
+    //4. company_id: id positivo o vacío (null = "Sin compañía")
+    const companyIdRaw = req.body[COMPANY_ID_FIELD];
+    if (companyIdRaw !== undefined) {
+        if (companyIdRaw === null || (typeof companyIdRaw === 'string' && companyIdRaw.trim() === '')) {
+            fieldsToUpdate[COMPANY_ID_FIELD] = null;
+        } else if (isNonNegativeInteger(companyIdRaw) && parseInt(companyIdRaw, 10) > 0) {
+            fieldsToUpdate[COMPANY_ID_FIELD] = typeof companyIdRaw === 'string'
+                ? parseInt(companyIdRaw, 10)
+                : companyIdRaw;
+        } else {
+            validationErrors.push('company_id debe ser un identificador positivo o vacío');
+        }
+    }
+
+    //5. photo_url solo acepta vaciado (''): la foto se cambia subiendo un archivo ('photo'); evita sobrescribir el asset remoto por texto arbitrario
+    const photoUrlRaw = req.body.photo_url;
+    if (photoUrlRaw !== undefined) {
+        if (typeof photoUrlRaw === 'string' && photoUrlRaw === '') {
+            if (!req.file) fieldsToUpdate.photo_url = '';
+        } else {
+            validationErrors.push('photo_url solo puede vaciarse; cambia la foto subiendo un archivo');
+        }
+    }
+
+    //6. Foto nueva subida a Cloudinary (única vía autorizada para photo_url)
     if (req.file) {
         fieldsToUpdate.photo_url = req.file.path;
     }
 
-    const validKeys = [];
-    const validValues = [];
-
-    for (const key in fieldsToUpdate) {
-        const value = fieldsToUpdate[key];
-        // Filtramos para no meter el objeto 'file' o campos vacíos erróneos
-        if (key !== 'photo' && value !== undefined) {
-            validKeys.push(key);
-            validValues.push(value);
-        }
+    if (validationErrors.length > 0) {
+        return res.status(400).json({
+            status: 'error',
+            message: 'Datos de actualización inválidos',
+            errors: validationErrors,
+        });
     }
 
-    if (validKeys.length === 0) {
-        return res.status(400).json({ message: 'No hay datos válidos para actualizar.' });
+    if (Object.keys(fieldsToUpdate).length === 0) {
+        return res.status(400).json({
+            status: 'error',
+            message: 'No hay datos válidos para actualizar.',
+        });
     }
 
-    // Manejo de compañía nula
-    const companyIndex = validKeys.indexOf('company_id');
-    if (companyIndex !== -1 && validValues[companyIndex] === '') {
-        validValues[companyIndex] = null;
-    }
-
-    const setClauses = validKeys.map(key => `${key} = ?`).join(', ');
+    const setClauses = Object.keys(fieldsToUpdate).map((key) => `${key} = ?`).join(', ');
     const query = `UPDATE fighters SET ${setClauses} WHERE fighter_id = ?`;
-    const finalValues = [...validValues, id];
+    const finalValues = [...Object.values(fieldsToUpdate), id];
 
     try {
         await pool.query(query, finalValues);
@@ -272,7 +349,7 @@ const updateFighter = async (req, res) => {
         });
     } catch (error) {
         console.error("Error al actualizar el peleador:", error);
-        res.status(500).json({ message: 'Error al actualizar el peleador', error: error.message });
+        res.status(500).json({ message: 'Error al actualizar el peleador' });
     }
 };
 //Borrar peleador
