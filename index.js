@@ -33,6 +33,11 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// TASK-0006 paso 3: solo se confía en X-Forwarded-For cuando el socket llega de Nginx
+// (loopback). El backend está expuesto a Internet: conexiones directas NO son confiables
+// y req.ip conserva la IP real del cliente (evita evasión con XFF falsificada).
+app.set('trust proxy', 'loopback');
+
 // Middleware para JSON
 app.use(express.json());
 app.use(cors());
