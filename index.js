@@ -15,6 +15,7 @@ try {
 
 const express = require('express');
 const cors = require('cors');
+const { buildCorsOptions } = require('./config/cors');
 const pool = require("./config/db");
 const path = require('path');
 const fightersRouter = require("./routes/fighters.routes");
@@ -40,7 +41,8 @@ app.set('trust proxy', 'loopback');
 
 // Middleware para JSON
 app.use(express.json());
-app.use(cors());
+// TASK-0006 paso 4: CORS por allowlist (sin comodines). Ver config/cors.js
+app.use(cors(buildCorsOptions()));
 app.use('/images', express.static(path.join(__dirname, 'public', 'images')));
 app.use('/api/auth', authRoutes);
 
