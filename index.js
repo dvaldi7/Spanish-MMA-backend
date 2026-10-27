@@ -25,6 +25,7 @@ const companiesRouter = require("./routes/companies.routes");
 const eventsRouter = require("./routes/events.routes");
 const newsRouter = require("./routes/news.routes");
 const authRoutes = require("./routes/auth.routes");
+const { errorHandler, notFoundApi } = require("./middleware/errorHandler");
 
 
 import { fileURLToPath } from 'url';
@@ -68,6 +69,9 @@ app.use("/api/events", eventsRouter);
 app.use("/api/companies", companiesRouter);
 app.use("/api/news", newsRouter);
 
+// TASK-0006 paso 6: 404 JSON para rutas /api inexistentes y manejador global de errores
+app.use('/api', notFoundApi);
+app.use(errorHandler);
 
 // Levantar servidor
 app.listen(PORT, process.env.HOST || '127.0.0.1', () => {
