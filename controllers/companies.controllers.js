@@ -103,8 +103,7 @@ const createCompanies = async (req, res) => {
     } catch (error) {
         console.error("Error al crear compañía: ", error);
         res.status(500).json({
-            message: "Error interno del servidor al crear la compañía",
-            error: error.message
+            message: "Error interno del servidor al crear la compañía"
         });
     }
 }
