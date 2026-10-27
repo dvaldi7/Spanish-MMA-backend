@@ -101,3 +101,20 @@ test('regresión: 404 fuera de /api mantiene el comportamiento por defecto de Ex
         assert.equal(r.status, 404);
     });
 });
+
+test('logging sin query strings: el log registra el path pero nunca parámetros de URL', async () => {
+    await withServer(async (req) => {
+        const originalError = console.error;
+        const captured = [];
+        console.error = (...args) => captured.push(args.join(' '));
+        try {
+            const r = await req('/api/async-fail?token=SECRETO-EN-QUERY&email=x@y.es', { method: 'POST' });
+            assert.equal(r.status, 500); // contrato HTTP intacto (500 genérico)
+            const line = captured.join(' ');
+            assert.ok(line.includes('/api/async-fail'), 'el log registra el path');
+            assert.ok(!line.includes('SECRETO-EN-QUERY'), 'jamás registra la query string');
+        } finally {
+            console.error = originalError;
+        }
+    });
+});

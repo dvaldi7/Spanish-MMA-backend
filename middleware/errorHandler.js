@@ -15,7 +15,8 @@ const notFoundApi = (req, res) => {
 };
 
 const errorHandler = (err, req, res, next) => {
-    console.error(`[error] ${req.method} ${req.originalUrl} -> ${err.name || 'Error'}: ${err.message}`);
+    // req.path (sin query string): evita registrar posibles secretos en parámetros de URL
+    console.error(`[error] ${req.method} ${req.path} -> ${err.name || 'Error'}: ${err.message}`);
 
     if (res.headersSent) return next(err);
 
