@@ -15,7 +15,9 @@ try {
 
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const { buildCorsOptions } = require('./config/cors');
+const { buildHelmetOptions } = require('./config/helmet');
 const pool = require("./config/db");
 const path = require('path');
 const fightersRouter = require("./routes/fighters.routes");
@@ -34,6 +36,9 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// TASK-0006 paso 5: sin firma de framework en las respuestas
+app.disable('x-powered-by');
+
 // TASK-0006 paso 3: solo se confía en X-Forwarded-For cuando el socket llega de Nginx
 // (loopback). El backend está expuesto a Internet: conexiones directas NO son confiables
 // y req.ip conserva la IP real del cliente (evita evasión con XFF falsificada).
@@ -41,6 +46,9 @@ app.set('trust proxy', 'loopback');
 
 // Middleware para JSON
 app.use(express.json());
+// TASK-0006 paso 5: cabeceras de seguridad (ver config/helmet.js)
+app.use(helmet(buildHelmetOptions()));
+
 // TASK-0006 paso 4: CORS por allowlist (sin comodines). Ver config/cors.js
 app.use(cors(buildCorsOptions()));
 app.use('/images', express.static(path.join(__dirname, 'public', 'images')));
